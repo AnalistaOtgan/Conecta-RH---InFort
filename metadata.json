@@ -1,0 +1,5 @@
+{
+  "name": "Conecta RH - InFort",
+  "description": "A comprehensive HR web system with role-based authentication for employees and HR personnel. It allows employees to manage payslips, time-off requests, and meetings, while HR can manage payroll, requests, and company announcements.",
+  "requestFramePermissions": []
+}
