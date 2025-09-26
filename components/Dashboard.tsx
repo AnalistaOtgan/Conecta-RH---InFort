@@ -12,7 +12,6 @@ import ManageMeetings from './hr/ManageMeetings';
 import UploadPayslip from './hr/UploadPayslip';
 import PostAnnouncement from './hr/PostAnnouncement';
 import Announcements from './shared/Announcements';
-import RegisterEmployee from './hr/RegisterEmployee';
 import ManageEvents from './hr/ManageEvents';
 import MyEvents from './employee/MyEvents';
 import ManageEmployees from './hr/ManageEmployees';
@@ -71,8 +70,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, data, actions }) 
         case 'manage-meetings': return <ManageMeetings requests={data.meetingRequests} onUpdateStatus={actions.updateMeetingStatus} employees={employees} />;
         case 'upload-payslip': return <UploadPayslip employees={employees} onSubmit={actions.addPayslip} />;
         case 'post-announcement': return <PostAnnouncement onSubmit={actions.addAnnouncement} />;
-        case 'register-employee': return <RegisterEmployee onSubmit={actions.registerEmployee} users={data.users} />;
-        case 'manage-employees': return <ManageEmployees users={data.users} onUpdateStatus={actions.updateUserStatus} onResetPassword={actions.resetUserPassword} onImport={actions.importEmployees} />;
+        case 'manage-employees': return <ManageEmployees users={data.users} onUpdateStatus={actions.updateUserStatus} onResetPassword={actions.resetUserPassword} onImport={actions.importEmployees} onRegister={actions.registerEmployee} />;
         case 'manage-events': return <ManageEvents events={data.events} employees={employees} onSubmit={actions.addEvent} />;
         default: return <HRDashboard timeOffRequests={data.timeOffRequests} meetingRequests={data.meetingRequests} />;
       }

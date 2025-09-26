@@ -250,22 +250,120 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
   );
 };
 // ==========================================================
+// Inlined RegisterEmployeeModal component
+// ==========================================================
+interface RegisterEmployeeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (name: string, email: string, emergencyPhone?: string) => void;
+  users: User[];
+}
+
+const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, onClose, onSubmit, users }) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [emergencyPhone, setEmergencyPhone] = useState('');
+  const [error, setError] = useState('');
+
+  const resetStateAndClose = () => {
+    setName('');
+    setEmail('');
+    setEmergencyPhone('');
+    setError('');
+    onClose();
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+        setError('Este email já está em uso.');
+        return;
+    }
+    setError('');
+    onSubmit(name, email, emergencyPhone);
+    resetStateAndClose();
+  };
+  
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4 transition-opacity" onClick={resetStateAndClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl transform transition-all" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 border-b flex justify-between items-center">
+            <h3 className="text-xl font-bold text-gray-900">Cadastrar Novo Funcionário</h3>
+            <button onClick={resetStateAndClose} className="p-1 rounded-full text-slate-400 hover:bg-slate-100">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <form onSubmit={handleSubmit}>
+            <div className="p-6 space-y-6">
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-slate-700">Nome Completo</label>
+                  <input
+                    type="text"
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-slate-700">Email</label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="emergencyPhone" className="block text-sm font-medium text-slate-700">Telefone de Contato (Opcional)</label>
+                  <input
+                    type="tel"
+                    id="emergencyPhone"
+                    value={emergencyPhone}
+                    onChange={(e) => setEmergencyPhone(e.target.value)}
+                    placeholder="(XX) XXXXX-XXXX"
+                    className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
+                  />
+                </div>
+                {error && <p className="text-sm text-red-600">{error}</p>}
+            </div>
+            <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3 rounded-b-lg">
+                <button type="button" onClick={resetStateAndClose} className="px-4 py-2 bg-white text-sm font-medium text-slate-700 border border-slate-300 rounded-md hover:bg-slate-50">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-slate-800 text-sm font-medium text-white border border-transparent rounded-md hover:bg-slate-900">
+                  Cadastrar
+                </button>
+            </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+// ==========================================================
 
 interface ManageEmployeesProps {
   users: User[];
   onUpdateStatus: (userId: number, status: 'ATIVO' | 'INATIVO') => void;
   onResetPassword: (userId: number) => void;
   onImport: (data: any[]) => ImportResult;
+  onRegister: (name: string, email: string, emergencyPhone?: string) => void;
 }
 
 const getStatusColor = (status: 'ATIVO' | 'INATIVO') => {
     return status === 'ATIVO' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800';
 };
 
-const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus, onResetPassword, onImport }) => {
+const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus, onResetPassword, onImport, onRegister }) => {
   const [filter, setFilter] = useState('');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [confirmationAction, setConfirmationAction] = useState<(() => void) | null>(null);
   const [confirmationDetails, setConfirmationDetails] = useState({ title: '', message: '', confirmText: '' });
 
@@ -333,12 +431,21 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
             />
              <button
               onClick={() => setIsImportModalOpen(true)}
-              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-800 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors"
+              className="inline-flex items-center justify-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
               Importar
+            </button>
+            <button
+              onClick={() => setIsRegisterModalOpen(true)}
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-800 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Novo Funcionário
             </button>
           </div>
         </div>
@@ -399,6 +506,12 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onImport={onImport}
+      />
+       <RegisterEmployeeModal 
+        isOpen={isRegisterModalOpen}
+        onClose={() => setIsRegisterModalOpen(false)}
+        onSubmit={onRegister}
+        users={users}
       />
     </>
   );
