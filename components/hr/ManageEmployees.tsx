@@ -348,13 +348,14 @@ interface ManageEmployeesProps {
   onResetPassword: (userId: number) => void;
   onImport: (data: any[]) => Promise<ImportResult>;
   onRegister: (name: string, email: string, emergencyPhone?: string) => void;
+  onUpdateRole: (userId: number, role: Role) => void;
 }
 
 const getStatusColor = (status: 'ATIVO' | 'INATIVO') => {
     return status === 'ATIVO' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800';
 };
 
-const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus, onResetPassword, onImport, onRegister }) => {
+const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus, onResetPassword, onImport, onRegister, onUpdateRole }) => {
   const [filter, setFilter] = useState('');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -365,8 +366,8 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
   const handleStatusUpdateClick = (userId: number, currentStatus: 'ATIVO' | 'INATIVO') => {
     const newStatus = currentStatus === 'ATIVO' ? 'INATIVO' : 'ATIVO';
     setConfirmationDetails({
-        title: `${newStatus === 'ATIVO' ? 'Reativar' : 'Desativar'} Funcionário`,
-        message: `Tem certeza que deseja ${newStatus === 'ATIVO' ? 'reativar' : 'desativar'} este funcionário?`,
+        title: `${newStatus === 'ATIVO' ? 'Reativar' : 'Desativar'} Usuário`,
+        message: `Tem certeza que deseja ${newStatus === 'ATIVO' ? 'reativar' : 'desativar'} este usuário?`,
         confirmText: `Sim, ${newStatus === 'ATIVO' ? 'Reativar' : 'Desativar'}`
     });
     setConfirmationAction(() => () => onUpdateStatus(userId, newStatus));
@@ -383,6 +384,16 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
     setIsConfirmOpen(true);
   };
 
+  const handlePromoteClick = (user: User) => {
+    setConfirmationDetails({
+        title: 'Promover Usuário',
+        message: `Tem certeza que deseja promover ${user.name} para o cargo de RH? Esta ação concederá privilégios administrativos.`,
+        confirmText: 'Sim, Promover'
+    });
+    setConfirmationAction(() => () => onUpdateRole(user.id, Role.RH));
+    setIsConfirmOpen(true);
+  };
+
   const handleConfirm = () => {
     if (confirmationAction) {
       confirmationAction();
@@ -396,17 +407,17 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
   };
 
   const filteredUsers = useMemo(() => {
-    const employees = users.filter(u => u.role === Role.FUNCIONARIO);
     if (!filter) {
-      return employees;
+      return users;
     }
     const lowercasedFilter = filter.toLowerCase();
     const numericFilter = filter.replace(/\D/g, '');
 
-    return employees.filter(
+    return users.filter(
       user =>
         user.name.toLowerCase().includes(lowercasedFilter) ||
         user.email.toLowerCase().includes(lowercasedFilter) ||
+        user.role.toLowerCase().includes(lowercasedFilter) ||
         (user.emergencyPhone && user.emergencyPhone.replace(/\D/g, '').includes(numericFilter))
     );
   }, [users, filter]);
@@ -416,7 +427,7 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
       return; // Button is disabled, but as a safeguard.
     }
 
-    const headers = ["Nome Completo", "Email", "Telefone de Contato", "Status"];
+    const headers = ["Nome Completo", "Email", "Cargo", "Telefone de Contato", "Status"];
     
     const escapeCell = (cellData: string | undefined | null) => {
         if (cellData == null) {
@@ -433,6 +444,7 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
         [
             escapeCell(user.name),
             escapeCell(user.email),
+            escapeCell(user.role),
             escapeCell(user.emergencyPhone),
             escapeCell(user.status)
         ].join(',')
@@ -445,7 +457,7 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", "funcionarios.csv");
+    link.setAttribute("download", "usuarios.csv");
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -457,11 +469,11 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
     <>
       <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md">
         <div className="sm:flex sm:items-center sm:justify-between mb-6">
-          <h2 className="text-2xl font-bold text-slate-800">Gerenciar Funcionários</h2>
+          <h2 className="text-2xl font-bold text-slate-800">Gerenciar Usuários</h2>
           <div className="mt-4 sm:mt-0 flex items-center space-x-2">
             <input
               type="text"
-              placeholder="Filtrar por nome, email ou telefone..."
+              placeholder="Filtrar por nome, email, cargo..."
               value={filter}
               onChange={e => setFilter(e.target.value)}
               className="block w-full sm:w-64 pl-3 pr-10 py-2 text-base bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm rounded-md"
@@ -502,6 +514,7 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Nome</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Cargo</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Telefone de Contato</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Ações</th>
@@ -514,6 +527,7 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
                     <div className="text-sm font-medium text-slate-900">{user.name}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{user.email}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{user.role}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{user.emergencyPhone || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(user.status)}`}>
@@ -528,6 +542,11 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
                     >
                       {user.status === 'ATIVO' ? 'Desativar' : 'Reativar'}
                     </button>
+                    {user.role === Role.FUNCIONARIO && (
+                        <button onClick={() => handlePromoteClick(user)} className="text-blue-600 hover:text-blue-900 transition-colors">
+                            Promover a RH
+                        </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -535,7 +554,7 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
           </table>
           {filteredUsers.length === 0 && (
             <div className="text-center py-10 text-slate-500">
-              Nenhum funcionário encontrado.
+              Nenhum usuário encontrado.
             </div>
           )}
         </div>

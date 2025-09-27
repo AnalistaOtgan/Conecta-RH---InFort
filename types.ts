@@ -1,3 +1,4 @@
+
 export enum Role {
   FUNCIONARIO = 'Funcionário',
   RH = 'RH'
@@ -91,4 +92,29 @@ export interface AppNotification {
 export interface ImportResult {
   successCount: number;
   errors: { row: number; data: any; reason: string }[];
+}
+
+export enum LogActionType {
+  CADASTRO_USUARIO = 'Cadastro de Usuário',
+  IMPORTACAO_USUARIOS = 'Importação de Usuários',
+  ATUALIZACAO_STATUS_USUARIO = 'Atualização de Status',
+  RESET_SENHA = 'Reset de Senha',
+  PROMOCAO_CARGO = 'Promoção de Cargo',
+  APROVACAO_FOLGA = 'Aprovação de Folga',
+  NEGACAO_FOLGA = 'Negação de Folga',
+  APROVACAO_REUNIAO = 'Aprovação de Reunião',
+  NEGACAO_REUNIAO = 'Negação de Reunião',
+  LANCAMENTO_CONTRACHEQUE = 'Lançamento de Contracheque',
+  PUBLICACAO_INFORMATIVO = 'Publicação de Informativo',
+  CRIACAO_EVENTO = 'Criação de Evento',
+  ATUALIZACAO_EVENTO = 'Atualização de Evento',
+}
+
+export interface LogEntry {
+  id: string;
+  timestamp: string;
+  adminId: number;
+  adminName: string;
+  action: LogActionType;
+  details: string;
 }

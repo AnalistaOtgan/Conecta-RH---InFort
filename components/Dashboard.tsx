@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Role, Payslip, TimeOffRequest, MeetingRequest, Announcement, RequestStatus, Event, AppNotification, ImportResult } from '../types';
+import { User, Role, Payslip, TimeOffRequest, MeetingRequest, Announcement, RequestStatus, Event, AppNotification, ImportResult, LogEntry } from '../types';
 import Header from './shared/Header';
 import Sidebar from './shared/Sidebar';
 import EmployeeDashboard from './employee/EmployeeDashboard';
@@ -16,6 +16,7 @@ import ManageEvents from './hr/ManageEvents';
 import MyEvents from './employee/MyEvents';
 import ManageEmployees from './hr/ManageEmployees';
 import FeedbackSystem from './hr/FeedbackSystem';
+import ActivityLog from './hr/ActivityLog';
 
 interface DashboardProps {
   user: User;
@@ -28,6 +29,7 @@ interface DashboardProps {
     announcements: Announcement[];
     events: Event[];
     appNotifications: AppNotification[];
+    logs: LogEntry[];
   };
   actions: {
     addTimeOffRequest: (request: Omit<TimeOffRequest, 'id' | 'status' | 'userName' | 'userId'>) => void;
@@ -43,6 +45,7 @@ interface DashboardProps {
     updateUserStatus: (userId: number, status: 'ATIVO' | 'INATIVO') => void;
     resetUserPassword: (userId: number) => void;
     importEmployees: (data: any[]) => Promise<ImportResult>;
+    updateUserRole: (userId: number, role: Role) => void;
   };
 }
 
@@ -63,6 +66,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, data, actions }) 
         default: return <EmployeeDashboard user={user} announcements={data.announcements} />;
       }
     } else if (user.role === Role.RH) {
+      const hrUsers = data.users.filter(u => u.role === Role.RH);
       switch (activeView) {
         case 'dashboard': return <HRDashboard timeOffRequests={data.timeOffRequests} meetingRequests={data.meetingRequests} />;
         case 'announcements': return <Announcements announcements={data.announcements} />;
@@ -71,8 +75,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, data, actions }) 
         case 'manage-meetings': return <ManageMeetings requests={data.meetingRequests} onUpdateStatus={actions.updateMeetingStatus} employees={employees} />;
         case 'upload-payslip': return <UploadPayslip employees={employees} onSubmit={actions.addPayslip} />;
         case 'post-announcement': return <PostAnnouncement onSubmit={actions.addAnnouncement} />;
-        case 'manage-employees': return <ManageEmployees users={data.users} onUpdateStatus={actions.updateUserStatus} onResetPassword={actions.resetUserPassword} onImport={actions.importEmployees} onRegister={actions.registerEmployee} />;
+        case 'manage-employees': return <ManageEmployees users={data.users} onUpdateStatus={actions.updateUserStatus} onResetPassword={actions.resetUserPassword} onImport={actions.importEmployees} onRegister={actions.registerEmployee} onUpdateRole={actions.updateUserRole} />;
         case 'manage-events': return <ManageEvents events={data.events} employees={employees} onCreate={actions.addEvent} onUpdate={actions.updateEvent} />;
+        case 'activity-log': return <ActivityLog logs={data.logs} adminUsers={hrUsers} />;
         default: return <HRDashboard timeOffRequests={data.timeOffRequests} meetingRequests={data.meetingRequests} />;
       }
     }

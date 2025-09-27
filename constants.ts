@@ -1,4 +1,4 @@
-import { Role, User, Payslip, TimeOffRequest, RequestStatus, TimeOffType, MeetingRequest, Announcement, Event, AppNotification } from './types';
+import { Role, User, Payslip, TimeOffRequest, RequestStatus, TimeOffType, MeetingRequest, Announcement, Event, AppNotification, LogEntry } from './types';
 
 export const USERS: User[] = [
   { id: 1, name: 'Ana Silva', email: 'ana@email.com', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'ATIVO' },
@@ -50,3 +50,5 @@ export const EVENTS: Event[] = [
 ];
 
 export const APP_NOTIFICATIONS: AppNotification[] = [];
+
+export const LOGS: LogEntry[] = [];
