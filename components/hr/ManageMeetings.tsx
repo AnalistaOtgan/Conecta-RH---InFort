@@ -5,7 +5,6 @@ import ConfirmationDialog from '../shared/ConfirmationDialog';
 interface ManageMeetingsProps {
   requests: MeetingRequest[];
   employees: User[];
-  // FIX: Update status parameter to use RequestStatus enum for type safety.
   onUpdateStatus: (id: string, status: RequestStatus.APROVADO | RequestStatus.NEGADO) => void;
 }
 
@@ -51,7 +50,7 @@ const ManageMeetings: React.FC<ManageMeetingsProps> = ({ requests, employees, on
     if (employeeFilter !== 'ALL') {
       filtered = filtered.filter(req => req.userId === Number(employeeFilter));
     }
-    return filtered;
+    return filtered.sort((a, b) => new Date(b.preferredDateTime).getTime() - new Date(a.preferredDateTime).getTime());
   }, [requests, statusFilter, employeeFilter]);
 
   return (
