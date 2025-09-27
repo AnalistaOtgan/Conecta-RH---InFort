@@ -5,6 +5,7 @@ export const USERS: User[] = [
   { id: 2, name: 'Carlos Pereira', email: 'carlos@email.com', role: Role.RH, password: 'password', needsPasswordSetup: false, status: 'ATIVO' },
   { id: 3, name: 'Beatriz Costa', email: 'beatriz@email.com', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'ATIVO' },
   { id: 4, name: 'Davi Souza', email: 'davi@email.com', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'INATIVO' },
+  { id: 5, name: 'Analista RH', email: 'analista@email.com', role: Role.RH, password: 'admin123', needsPasswordSetup: false, status: 'ATIVO' },
 ];
 
 export const PAYSLIPS: Payslip[] = [
@@ -15,7 +16,7 @@ export const PAYSLIPS: Payslip[] = [
 
 export const TIMEOFF_REQUESTS: TimeOffRequest[] = [
   { id: 'to1', userId: 1, userName: 'Ana Silva', type: TimeOffType.FERIAS, startDate: '2024-07-20', endDate: '2024-07-30', justification: 'Férias anuais', status: RequestStatus.APROVADO },
-  { id: 'to2', userId: 3, userName: 'Beatriz Costa', type: TimeOffType.LICENCA_MEDICA, startDate: '2024-08-01', endDate: '2024-08-05', justification: 'Consulta médica', status: RequestStatus.PENDENTE },
+  { id: 'to2', userId: 3, userName: 'Beatriz Costa', type: TimeOffType.LICENCA_MEDICA, startDate: '2024-08-01', endDate: '2024-08-05', justification: 'Consulta médica', status: RequestStatus.PENDENTE, medicalCertificateUrl: '/certificates/beatriz-med-cert-2024-08.pdf' },
 ];
 
 export const MEETING_REQUESTS: MeetingRequest[] = [
@@ -35,6 +36,8 @@ export const EVENTS: Event[] = [
     description: 'Discussão sobre os resultados do Q2 e planejamento para o Q3. A presença de todos os líderes de equipe é obrigatória.',
     dateTime: '2024-08-01T10:00',
     participantIds: [1], // Ana Silva
+    reminderMinutesBefore: 30,
+    status: 'ACTIVE',
   },
   {
     id: 'e2',
@@ -42,6 +45,7 @@ export const EVENTS: Event[] = [
     description: 'Treinamento obrigatório sobre novas políticas de segurança de dados.',
     dateTime: '2024-08-15T14:00',
     participantIds: [1, 3], // Ana Silva, Beatriz Costa
+    status: 'ACTIVE',
   }
 ];
 

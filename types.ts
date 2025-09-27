@@ -47,7 +47,7 @@ export interface TimeOffRequest {
 }
 
 export interface MeetingRequest {
-  id: string;
+  id:string;
   userId: number;
   userName: string;
   topic: string;
@@ -75,6 +75,8 @@ export interface Event {
   description: string;
   dateTime: string;
   participantIds: number[];
+  reminderMinutesBefore?: number;
+  status?: 'ACTIVE' | 'ARCHIVED';
 }
 
 export interface AppNotification {
@@ -84,4 +86,9 @@ export interface AppNotification {
   read: boolean;
   link: string;
   timestamp: string;
+}
+
+export interface ImportResult {
+  successCount: number;
+  errors: { row: number; data: any; reason: string }[];
 }

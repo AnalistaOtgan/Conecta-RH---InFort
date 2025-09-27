@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Role, Payslip, TimeOffRequest, MeetingRequest, Announcement, RequestStatus, Event, AppNotification } from '../types';
+import { User, Role, Payslip, TimeOffRequest, MeetingRequest, Announcement, RequestStatus, Event, AppNotification, ImportResult } from '../types';
 import Header from './shared/Header';
 import Sidebar from './shared/Sidebar';
 import EmployeeDashboard from './employee/EmployeeDashboard';
@@ -38,10 +38,11 @@ interface DashboardProps {
     addAnnouncement: (announcement: Omit<Announcement, 'id' | 'date'>) => void;
     registerEmployee: (name: string, email: string, emergencyPhone?: string) => void;
     addEvent: (event: Omit<Event, 'id'>) => void;
+    updateEvent: (eventId: string, eventData: Partial<Omit<Event, 'id'>>) => void;
     markNotificationsAsRead: (userId: number) => void;
     updateUserStatus: (userId: number, status: 'ATIVO' | 'INATIVO') => void;
     resetUserPassword: (userId: number) => void;
-    importEmployees: (data: any[]) => { successCount: number; errors: { row: number; data: any; reason:string }[] };
+    importEmployees: (data: any[]) => Promise<ImportResult>;
   };
 }
 
@@ -58,7 +59,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, data, actions }) 
         case 'request-timeoff': return <RequestTimeOff onSubmit={actions.addTimeOffRequest} />;
         case 'schedule-meeting': return <ScheduleMeeting onSubmit={actions.addMeetingRequest} />;
         case 'announcements': return <Announcements announcements={data.announcements} />;
-        case 'my-events': return <MyEvents events={data.events.filter(e => e.participantIds.includes(user.id))} />;
+        case 'my-events': return <MyEvents events={data.events.filter(e => e.participantIds.includes(user.id) && e.status !== 'ARCHIVED')} />;
         default: return <EmployeeDashboard user={user} announcements={data.announcements} />;
       }
     } else if (user.role === Role.RH) {
@@ -71,7 +72,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, data, actions }) 
         case 'upload-payslip': return <UploadPayslip employees={employees} onSubmit={actions.addPayslip} />;
         case 'post-announcement': return <PostAnnouncement onSubmit={actions.addAnnouncement} />;
         case 'manage-employees': return <ManageEmployees users={data.users} onUpdateStatus={actions.updateUserStatus} onResetPassword={actions.resetUserPassword} onImport={actions.importEmployees} onRegister={actions.registerEmployee} />;
-        case 'manage-events': return <ManageEvents events={data.events} employees={employees} onSubmit={actions.addEvent} />;
+        case 'manage-events': return <ManageEvents events={data.events} employees={employees} onCreate={actions.addEvent} onUpdate={actions.updateEvent} />;
         default: return <HRDashboard timeOffRequests={data.timeOffRequests} meetingRequests={data.meetingRequests} />;
       }
     }
@@ -86,7 +87,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, data, actions }) 
             user={user} 
             onLogout={onLogout} 
             toggleSidebar={() => setSidebarOpen(!isSidebarOpen)}
-            notifications={data.appNotifications.filter(n => n.userId === user.id)}
+            data={data}
             markNotificationsAsRead={() => actions.markNotificationsAsRead(user.id)}
             setActiveView={setActiveView}
         />

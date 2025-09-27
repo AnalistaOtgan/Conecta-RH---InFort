@@ -1,6 +1,47 @@
+
 import React, { useState, useMemo } from 'react';
 import { TimeOffRequest, RequestStatus, User, TimeOffType } from '../../types';
 import ConfirmationDialog from '../shared/ConfirmationDialog';
+
+interface AttachmentViewerModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  attachmentUrl: string | null;
+}
+
+const AttachmentViewerModal: React.FC<AttachmentViewerModalProps> = ({ isOpen, onClose, attachmentUrl }) => {
+  if (!isOpen || !attachmentUrl) return null;
+
+  const isPdf = attachmentUrl.toLowerCase().endsWith('.pdf');
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="p-4 border-b flex justify-between items-center">
+            <h3 className="text-lg font-bold text-gray-900">Visualizador de Anexo</h3>
+            <button onClick={onClose} className="p-1 rounded-full text-slate-400 hover:bg-slate-100">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div className="flex-1 p-4 flex items-center justify-center bg-slate-100 overflow-hidden">
+             <div className="text-center p-8 bg-white rounded-lg border border-dashed border-slate-300">
+                <svg className="mx-auto h-16 w-16 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                 <p className="mt-4 font-semibold text-slate-700">Simulação de Visualização</p>
+                 <p className="text-sm text-slate-500 mt-1">
+                     Em um ambiente de produção, o {isPdf ? 'PDF' : 'arquivo'} seria exibido aqui.
+                 </p>
+                 <p className="mt-2 text-xs text-slate-400 break-all">Caminho do arquivo: {attachmentUrl}</p>
+             </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 interface ManageTimeOffProps {
   requests: TimeOffRequest[];
@@ -23,6 +64,18 @@ const ManageTimeOff: React.FC<ManageTimeOffProps> = ({ requests, employees, onUp
   const [employeeFilter, setEmployeeFilter] = useState<string>('ALL');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [isAttachmentModalOpen, setIsAttachmentModalOpen] = useState(false);
+  const [viewingAttachmentUrl, setViewingAttachmentUrl] = useState<string | null>(null);
+
+  const handleViewAttachment = (url: string) => {
+    setViewingAttachmentUrl(url);
+    setIsAttachmentModalOpen(true);
+  };
+
+  const handleCloseAttachmentModal = () => {
+    setIsAttachmentModalOpen(false);
+    setViewingAttachmentUrl(null);
+  };
 
   const handleDenyClick = (id: string) => {
     setSelectedRequestId(id);
@@ -91,7 +144,7 @@ const ManageTimeOff: React.FC<ManageTimeOffProps> = ({ requests, employees, onUp
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Funcionário</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tipo</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Período</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Anexo</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Anexo</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Ações</th>
               </tr>
@@ -106,14 +159,16 @@ const ManageTimeOff: React.FC<ManageTimeOffProps> = ({ requests, employees, onUp
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(req.startDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} - {new Date(req.endDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     {req.type === TimeOffType.LICENCA_MEDICA && req.medicalCertificateUrl && (
-                      <a 
-                        href={req.medicalCertificateUrl}
-                        title="Baixar atestado"
-                        onClick={(e) => { e.preventDefault(); alert(`Simulando download de ${req.medicalCertificateUrl}`); }}
-                        className="text-slate-500 hover:text-slate-800"
+                      <button
+                        onClick={() => handleViewAttachment(req.medicalCertificateUrl!)}
+                        title="Visualizar atestado"
+                        className="inline-block text-slate-500 hover:text-slate-800"
                       >
-                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
-                      </a>
+                         <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      </button>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -148,6 +203,11 @@ const ManageTimeOff: React.FC<ManageTimeOffProps> = ({ requests, employees, onUp
         onCancel={handleCancelDeny}
         confirmText="Sim, Negar"
         cancelText="Cancelar"
+      />
+       <AttachmentViewerModal
+        isOpen={isAttachmentModalOpen}
+        onClose={handleCloseAttachmentModal}
+        attachmentUrl={viewingAttachmentUrl}
       />
     </>
   );

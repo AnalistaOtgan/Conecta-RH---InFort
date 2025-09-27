@@ -1,14 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { User, Role } from '../../types';
+import { User, Role, ImportResult } from '../../types';
 import ConfirmationDialog from '../shared/ConfirmationDialog';
 
 // Declare XLSX, since it's loaded from a script tag and TS doesn't know about it.
 declare var XLSX: any;
-
-interface ImportResult {
-  successCount: number;
-  errors: { row: number; data: any; reason:string }[];
-}
 
 // ==========================================================
 // Inlined ImportEmployeesModal component
@@ -16,7 +11,7 @@ interface ImportResult {
 interface ImportEmployeesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (data: any[]) => ImportResult;
+  onImport: (data: any[]) => Promise<ImportResult>;
 }
 
 const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onClose, onImport }) => {
@@ -57,12 +52,12 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
     }
   };
 
-  const handleProcessImport = () => {
+  const handleProcessImport = async () => {
     if (!file) return;
 
     setIsProcessing(true);
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
@@ -73,7 +68,7 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
         // Filter out empty rows that might be parsed
         const filteredJson = json.filter((row: any) => Object.values(row).some(val => val !== null && val !== ''));
 
-        const importResult = onImport(filteredJson);
+        const importResult = await onImport(filteredJson);
         setResult(importResult);
       } catch (error) {
           console.error("Error parsing file:", error);
@@ -351,7 +346,7 @@ interface ManageEmployeesProps {
   users: User[];
   onUpdateStatus: (userId: number, status: 'ATIVO' | 'INATIVO') => void;
   onResetPassword: (userId: number) => void;
-  onImport: (data: any[]) => ImportResult;
+  onImport: (data: any[]) => Promise<ImportResult>;
   onRegister: (name: string, email: string, emergencyPhone?: string) => void;
 }
 
@@ -416,6 +411,48 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
     );
   }, [users, filter]);
 
+  const handleExportCSV = () => {
+    if (filteredUsers.length === 0) {
+      return; // Button is disabled, but as a safeguard.
+    }
+
+    const headers = ["Nome Completo", "Email", "Telefone de Contato", "Status"];
+    
+    const escapeCell = (cellData: string | undefined | null) => {
+        if (cellData == null) {
+            return '';
+        }
+        const str = String(cellData);
+        if (str.search(/("|,|\n)/g) >= 0) {
+            return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+    };
+
+    const rows = filteredUsers.map(user => 
+        [
+            escapeCell(user.name),
+            escapeCell(user.email),
+            escapeCell(user.emergencyPhone),
+            escapeCell(user.status)
+        ].join(',')
+    );
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "funcionarios.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+
   return (
     <>
       <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md">
@@ -429,6 +466,16 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
               onChange={e => setFilter(e.target.value)}
               className="block w-full sm:w-64 pl-3 pr-10 py-2 text-base bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm rounded-md"
             />
+             <button
+              onClick={handleExportCSV}
+              disabled={filteredUsers.length === 0}
+              className="inline-flex items-center justify-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Exportar
+            </button>
              <button
               onClick={() => setIsImportModalOpen(true)}
               className="inline-flex items-center justify-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors"
