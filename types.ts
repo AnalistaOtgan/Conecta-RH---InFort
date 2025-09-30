@@ -1,4 +1,5 @@
 
+
 export enum Role {
   FUNCIONARIO = 'Funcionário',
   RH = 'RH'
@@ -8,6 +9,7 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  cpf: string;
   role: Role;
   password?: string;
   needsPasswordSetup?: boolean;

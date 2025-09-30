@@ -1,85 +1,46 @@
 import React from 'react';
+import { NavLink } from 'react-router-dom';
 import { User, Role } from '../../types';
 
 interface SidebarProps {
   user: User;
-  activeView: string;
-  setActiveView: (view: string) => void;
   isOpen: boolean;
   setOpen: (isOpen: boolean) => void;
 }
 
-const NavLink: React.FC<{
-    icon: React.ReactElement;
-    label: string;
-    isActive: boolean;
-    onClick: () => void;
-    href?: string;
-}> = ({ icon, label, isActive, onClick, href }) => {
-    const commonClasses = `flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 ${
-      isActive
-        ? 'bg-slate-800 text-white'
-        : 'text-slate-600 hover:bg-slate-200 hover:text-slate-800'
-    }`;
-    
-    if (href) {
-        return (
-            <a href={href} target="_blank" rel="noopener noreferrer" className={`${commonClasses} justify-between`}>
-                <div className="flex items-center">
-                    {icon}
-                    <span className="ml-3">{label}</span>
-                </div>
-                <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-            </a>
-        );
-    }
+const Sidebar: React.FC<SidebarProps> = ({ user, isOpen, setOpen }) => {
 
-    return (
-      <button
-        onClick={onClick}
-        className={commonClasses}
-      >
-        {icon}
-        <span className="ml-3">{label}</span>
-      </button>
-    );
-};
-
-const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, isOpen, setOpen }) => {
-
-  const handleNavigation = (view: string) => {
-    setActiveView(view);
+  const handleLinkClick = () => {
     if (window.innerWidth < 1024) { // lg breakpoint
       setOpen(false);
     }
   };
     
-  const commonLinks = [
-    { id: 'dashboard', label: 'Dashboard', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg> },
-    { id: 'announcements', label: 'Informativos', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-2.236 9.168-5.514C18.331 1.48 18.657 1 19 1h-3.328c-1.38 0-2.583.683-3.328 1.768C11.632 3.978 11.343 4.5 11 5.001V5.882z" /></svg> },
-  ];
-  
   const employeeLinks = [
-    ...commonLinks,
-    { id: 'payslips', label: 'Meus Contracheques', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg> },
-    { id: 'request-timeoff', label: 'Solicitar Folga', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> },
-    { id: 'schedule-meeting', label: 'Agendar Reunião', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-    { id: 'my-events', label: 'Meus Eventos', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> },
+    { to: '/dashboard', label: 'Dashboard', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 21H2V9h5.5v12zm7.25-18h-5.5v18h5.5V3zM22 11h-5.5v10H22V11z"/></svg> },
+    { to: '/announcements', label: 'Informativos', icon: <svg className="h-5 w-5" viewBox="0 0 428.108 428.108" fill="currentColor"><path d="M236.503,387.867c0,3.866-3.134,7-7,7h-30.898c-3.866,0-7-3.134-7-7s3.134-7,7-7h30.898 C233.369,380.867,236.503,384,236.503,387.867z M314.878,144.35c0,12.285-4.131,23.625-11.076,32.702 c7.079,13.78,11.076,29.392,11.076,45.92c0,55.595-45.229,100.825-100.825,100.825c-55.595,0-100.825-45.23-100.825-100.825 c0-54.853,44.028-99.615,98.601-100.802c8.473-18.695,27.312-31.733,49.137-31.733C290.693,90.437,314.878,114.623,314.878,144.35z M221.054,144.35c0,22.008,17.904,39.913,39.912,39.913c9.671,0,18.551-3.458,25.466-9.202 c-14.213-21.399-37.658-36.167-64.602-38.569C221.32,139.033,221.054,141.661,221.054,144.35z M300.878,222.972 c0-12.638-2.715-24.655-7.591-35.498c-9.012,6.772-20.206,10.789-32.321,10.789c-29.728,0-53.913-24.186-53.913-53.913 c0-2.707,0.201-5.368,0.588-7.97c-44.893,3.293-80.413,40.872-80.413,86.592c0,47.876,38.949,86.825,86.825,86.825 S300.878,270.848,300.878,222.972z M300.878,144.35c0-22.008-17.904-39.913-39.912-39.913c-14.163,0-26.628,7.417-33.714,18.569 c28.1,3.689,52.593,18.996,68.486,40.923C299.01,158.141,300.878,151.46,300.878,144.35z M252.177,355.057h-76.244 c-3.866,0-7,3.134-7,7s3.134,7,7,7h76.244c3.866,0,7-3.134,7-7S256.043,355.057,252.177,355.057z M379.295,49.957v371.151 c0,3.866-3.134,7-7,7H55.813c-3.866,0-7-3.134-7-7V49.957c0-3.866,3.134-7,7-7h68.925l86.236-42.243 c1.943-0.951,4.216-0.951,6.159,0l86.236,42.243h68.925C376.161,42.957,379.295,46.09,379.295,49.957z M156.563,42.957h114.983 l-57.492-28.162L156.563,42.957z M365.295,56.957h-63.404c-0.098,0.003-0.196,0.003-0.296,0H126.514 c-0.099,0.002-0.198,0.002-0.296,0H62.813v357.151h302.482V56.957z"/></svg> },
+    { to: '/payslips', label: 'Meus Contracheques', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M13.17 4L18 8.83V20H6V4h7.17M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm1 9h-4v1h3c.55 0 1 .45 1 1v3c0 .55-.45 1-1 1h-1v1h-2v-1H9v-2h4v-1h-3c-.55 0-1-.45-1-1v-3c0 .55.45-1 1-1h1V8h2v1h2v2z"/></svg> },
+    { to: '/request-timeoff', label: 'Solicitar Folga', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2zm-8 4H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z"/></svg> },
+    { to: '/schedule-meeting', label: 'Agendar Reunião', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg> },
+    { to: '/my-events', label: 'Meus Eventos', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg> },
   ];
   
   const hrLinks = [
-    ...commonLinks,
-    { id: 'manage-timeoff', label: 'Gerenciar Folgas', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg> },
-    { id: 'manage-meetings', label: 'Gerenciar Reuniões', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3h.01M17 17h.01" /></svg> },
-    { id: 'upload-payslip', label: 'Lançar Contracheque', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg> },
-    { id: 'post-announcement', label: 'Publicar Informativo', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-2.236 9.168-5.514C18.331 1.48 18.657 1 19 1h-3.328c-1.38 0-2.583.683-3.328 1.768C11.632 3.978 11.343 4.5 11 5.001V5.882z" /></svg> },
-    { id: 'manage-employees', label: 'Gerenciar Funcionários', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.122-1.28-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.122-1.28.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg> },
-    { id: 'manage-events', label: 'Gerenciar Eventos', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zM16 11h4m-2 2v-4" /></svg> },
-    { id: 'activity-log', label: 'Log de Atividades', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v11.494m-9-5.747h18" /></svg> },
-    { id: 'feedback-system', label: 'Sistema de Feedback', icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg> },
+    { to: '/dashboard', label: 'Dashboard', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 21H2V9h5.5v12zm7.25-18h-5.5v18h5.5V3zM22 11h-5.5v10H22V11z"/></svg> },
+    { to: '/announcements', label: 'Informativos', icon: <svg className="h-5 w-5" viewBox="0 0 428.108 428.108" fill="currentColor"><path d="M236.503,387.867c0,3.866-3.134,7-7,7h-30.898c-3.866,0-7-3.134-7-7s3.134-7,7-7h30.898 C233.369,380.867,236.503,384,236.503,387.867z M314.878,144.35c0,12.285-4.131,23.625-11.076,32.702 c7.079,13.78,11.076,29.392,11.076,45.92c0,55.595-45.229,100.825-100.825,100.825c-55.595,0-100.825-45.23-100.825-100.825 c0-54.853,44.028-99.615,98.601-100.802c8.473-18.695,27.312-31.733,49.137-31.733C290.693,90.437,314.878,114.623,314.878,144.35z M221.054,144.35c0,22.008,17.904,39.913,39.912,39.913c9.671,0,18.551-3.458,25.466-9.202 c-14.213-21.399-37.658-36.167-64.602-38.569C221.32,139.033,221.054,141.661,221.054,144.35z M300.878,222.972 c0-12.638-2.715-24.655-7.591-35.498c-9.012,6.772-20.206,10.789-32.321,10.789c-29.728,0-53.913-24.186-53.913-53.913 c0-2.707,0.201-5.368,0.588-7.97c-44.893,3.293-80.413,40.872-80.413,86.592c0,47.876,38.949,86.825,86.825,86.825 S300.878,270.848,300.878,222.972z M300.878,144.35c0-22.008-17.904-39.913-39.912-39.913c-14.163,0-26.628,7.417-33.714,18.569 c28.1,3.689,52.593,18.996,68.486,40.923C299.01,158.141,300.878,151.46,300.878,144.35z M252.177,355.057h-76.244 c-3.866,0-7,3.134-7,7s3.134,7,7,7h76.244c3.866,0,7-3.134,7-7S256.043,355.057,252.177,355.057z M379.295,49.957v371.151 c0,3.866-3.134,7-7,7H55.813c-3.866,0-7-3.134-7-7V49.957c0-3.866,3.134-7,7-7h68.925l86.236-42.243 c1.943-0.951,4.216-0.951,6.159,0l86.236,42.243h68.925C376.161,42.957,379.295,46.09,379.295,49.957z M156.563,42.957h114.983 l-57.492-28.162L156.563,42.957z M365.295,56.957h-63.404c-0.098,0.003-0.196,0.003-0.296,0H126.514 c-0.099,0.002-0.198,0.002-0.296,0H62.813v357.151h302.482V56.957z"/></svg> },
+    { to: '/payslips', label: 'Meus Contracheques', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M13.17 4L18 8.83V20H6V4h7.17M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm1 9h-4v1h3c.55 0 1 .45 1 1v3c0 .55-.45 1-1 1h-1v1h-2v-1H9v-2h4v-1h-3c-.55 0-1-.45-1-1v-3c0 .55.45-1 1-1h1V8h2v1h2v2z"/></svg> },
+    { to: '/manage-timeoff', label: 'Gerenciar Folgas', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2zm-8 4H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z"/></svg> },
+    { to: '/manage-meetings', label: 'Gerenciar Reuniões', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 15h7v2H7zm0-4h10v2H7zm0-4h10v2H7zm12-4h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-.14 0-.27.01-.4.04a2.008 2.008 0 0 0-1.44 1.19c-.1.23-.16.49-.16.77v14c0 .27.06.54.16.78s.25.45.43.64c.27.27.62.47 1.01.55c.13.02.26.03.4.03h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7-.25c.41 0 .75.34.75.75s-.34.75-.75.75s-.75-.34-.75-.75s.34-.75.75-.75zM19 19H5V5h14v14z"/></svg> },
+    { to: '/upload-payslip', label: 'Lançar Contracheque', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M13.17 4L18 8.83V20H6V4h7.17M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm1 9h-4v1h3c.55 0 1 .45 1 1v3c0 .55-.45 1-1 1h-1v1h-2v-1H9v-2h4v-1h-3c-.55 0-1-.45-1-1v-3c0 .55.45-1 1-1h1V8h2v1h2v2z"/></svg> },
+    { to: '/batch-upload-payslip', label: 'Lançar em Lote', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 13v4h-2v-4H8l4-4 4 4h-3zm4-8V4.5L18.5 9H13z"/></svg> },
+    { to: '/post-announcement', label: 'Publicar Informativo', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="9" r="4"/><path d="M9 15c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm7.76-9.64l-1.68 1.69c.84 1.18.84 2.71 0 3.89l1.68 1.69c2.02-2.02 2.02-5.07 0-7.27zM20.07 2l-1.63 1.63c2.77 3.02 2.77 7.56 0 10.74L20.07 16c3.9-3.89 3.91-9.95 0-14z"/></svg> },
+    { to: '/manage-employees', label: 'Gerenciar Funcionários', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><circle cx="10" cy="8" r="4"/><path d="M10.67 13.02c-.22-.01-.44-.02-.67-.02c-2.42 0-4.68.67-6.61 1.82c-.88.52-1.39 1.5-1.39 2.53V20h9.26a6.963 6.963 0 0 1-.59-6.98zM20.75 16c0-.22-.03-.42-.06-.63l1.14-1.01l-1-1.73l-1.45.49c-.32-.27-.68-.48-1.08-.63L18 11h-2l-.3 1.49c-.4.15-.76.36-1.08.63l-1.45-.49l-1 1.73l1.14 1.01c-.03.21-.06.41-.06.63s.03.42.06.63l-1.14 1.01l1 1.73l1.45-.49c.32.27.68.48 1.08.63L16 21h2l.3-1.49c.4-.15.76.36 1.08-.63l1.45.49l1-1.73l-1.14-1.01c.03-.21.06-.41.06-.63zM17 18c-1.1 0-2-.9-2-2s.9-2 2-2s2 .9 2 2s-.9 2-2 2z"/></svg> },
+    { to: '/manage-events', label: 'Gerenciar Eventos', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg> },
+    { to: '/activity-log', label: 'Log de Atividades', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1c-2.73 2.71-2.73 7.08 0 9.79s7.15 2.71 9.88 0C18.32 15.65 19 14.08 19 12.1h2c0 1.98-.88 4.55-2.64 6.29c-3.51 3.48-9.21 3.48-12.72 0c-3.5-3.47-3.53-9.11-.02-12.58s9.14-3.47 12.65 0L21 3v7.12zM12.5 8v4.25l3.5 2.08l-.72 1.21L11 13V8h1.5z"/></svg> },
+    { href: 'http://fmarechal.com/feedfort/', label: 'Sistema de Feedback', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M23 8c0 1.1-.9 2-2 2a1.7 1.7 0 0 1-.51-.07l-3.56 3.55c.05.16.07.34.07.52c0 1.1-.9 2-2 2s-2-.9-2-2c0-.18.02-.36.07-.52l-2.55-2.55c-.16.05-.34.07-.52.07s-.36-.02-.52-.07l-4.55 4.56c.05.16.07.33.07.51c0 1.1-.9 2-2 2s-2-.9-2-2s.9-2 2-2c.18 0 .35.02.51.07l4.56-4.55C8.02 9.36 8 9.18 8 9c0-1.1.9-2 2-2s2 .9 2 2c0 .18-.02.36-.07.52l2.55 2.55c.16-.05.34-.07.52-.07s.36.02.52.07l3.55-3.56A1.7 1.7 0 0 1 19 8c0-1.1.9-2 2-2s2 .9 2 2z"/></svg> },
   ];
 
-  const links = user.role === Role.FUNCIONARIO ? employeeLinks : hrLinks;
+  const links: Array<{ to?: string; href?: string; label: string; icon: React.ReactElement; }> = user.role === Role.FUNCIONARIO ? employeeLinks : hrLinks;
 
   return (
     <>
@@ -96,15 +57,32 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, isOp
         </div>
         <nav className="p-4">
             <ul className="space-y-2">
-                {links.map((link: any) => (
-                    <li key={link.id}>
-                       <NavLink 
-                        icon={link.icon}
-                        label={link.label}
-                        isActive={activeView === link.id}
-                        onClick={() => handleNavigation(link.id)}
-                        href={link.href}
-                       />
+                {links.map((link) => (
+                    <li key={link.label}>
+                       {link.href ? (
+                            <a href={link.href} target="_blank" rel="noopener noreferrer" className="flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 text-slate-600 hover:bg-slate-200 hover:text-slate-800 justify-between">
+                                <div className="flex items-center">
+                                    {link.icon}
+                                    <span className="ml-3">{link.label}</span>
+                                </div>
+                                <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                            </a>
+                       ) : (
+                           <NavLink 
+                             to={link.to!}
+                             onClick={handleLinkClick}
+                             className={({ isActive }) => 
+                               `flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 ${
+                                 isActive
+                                   ? 'bg-slate-800 text-white'
+                                   : 'text-slate-600 hover:bg-slate-200 hover:text-slate-800'
+                               }`
+                             }
+                           >
+                            {link.icon}
+                            <span className="ml-3">{link.label}</span>
+                           </NavLink>
+                       )}
                     </li>
                 ))}
             </ul>

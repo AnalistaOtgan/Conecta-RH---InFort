@@ -1,3 +1,5 @@
+
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { api } from './services/api';
 import { User, Role, Payslip, TimeOffRequest, MeetingRequest, Announcement, Notification as NotificationType, RequestStatus, Event, AppNotification, ImportResult, LogEntry } from './types';
@@ -6,8 +8,24 @@ import Dashboard from './components/Dashboard';
 import Notification from './components/Notification';
 import PasswordSetup from './components/PasswordSetup';
 
+const getSessionUser = (): User | null => {
+  try {
+    const userJson = localStorage.getItem('currentUser');
+    if (userJson) {
+      const user = JSON.parse(userJson);
+      if (user && typeof user.id === 'number' && user.name) {
+        return user;
+      }
+    }
+  } catch (error) {
+    console.error("Could not access local storage. User session will not be restored.", error);
+  }
+  return null;
+};
+
+
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, _setCurrentUser] = useState<User | null>(getSessionUser());
   const [users, setUsers] = useState<User[]>([]);
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
@@ -22,6 +40,19 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState('');
   const [sentReminders, setSentReminders] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const setCurrentUser = (user: User | null) => {
+    try {
+      if (user) {
+          localStorage.setItem('currentUser', JSON.stringify(user));
+      } else {
+          localStorage.removeItem('currentUser');
+      }
+    } catch (error) {
+        console.error("Could not access local storage. Session will not be persisted.", error);
+    }
+    _setCurrentUser(user);
+  };
 
   const showNotification = (message: string, type: NotificationType['type']) => {
     setNotification({ id: Date.now().toString(), message, type });
@@ -169,10 +200,10 @@ const App: React.FC = () => {
     setCurrentUser(null);
   };
   
-  const registerEmployee = useCallback(async (name: string, email: string, emergencyPhone?: string) => {
+  const registerEmployee = useCallback(async (name: string, email: string, cpf: string, emergencyPhone?: string) => {
     if (!currentUser) return;
     try {
-        const newUser = await api.registerEmployee(name, email, currentUser, emergencyPhone);
+        const newUser = await api.registerEmployee(name, email, cpf, currentUser, emergencyPhone);
         setUsers(prev => [...prev, newUser]);
         showNotification(`Funcionário ${name} cadastrado com sucesso.`, 'success');
         refreshLogs();
@@ -315,6 +346,25 @@ const App: React.FC = () => {
         showNotification('Erro ao lançar contracheque.', 'error');
     }
   }, [currentUser, refreshLogs]);
+
+  const addBatchPayslips = useCallback(async (payslipsData: Omit<Payslip, 'id' | 'fileUrl'>[]): Promise<{ successCount: number }> => {
+    if (!currentUser) return { successCount: 0 };
+    try {
+        const { newPayslips, successCount } = await api.addBatchPayslips(payslipsData, currentUser);
+        setPayslips(prev => [...prev, ...newPayslips]);
+        
+        newPayslips.forEach(p => {
+            addAppNotification(p.userId, `Seu contracheque de ${p.month}/${p.year} está disponível.`, 'payslips');
+        });
+
+        showNotification(`${successCount} contracheque(s) importado(s) com sucesso!`, 'success');
+        refreshLogs();
+        return { successCount };
+    } catch (error) {
+        showNotification('Ocorreu um erro na importação em lote.', 'error');
+        return { successCount: 0 };
+    }
+  }, [currentUser, addAppNotification, refreshLogs]);
   
   const addAnnouncement = useCallback(async (announcement: Omit<Announcement, 'id' | 'date'>) => {
     if (!currentUser) return;
@@ -378,7 +428,7 @@ const App: React.FC = () => {
           user={currentUser}
           onLogout={handleLogout}
           data={{ users, payslips, timeOffRequests, meetingRequests, announcements, events, appNotifications, logs }}
-          actions={{ addTimeOffRequest, updateTimeOffStatus, addMeetingRequest, updateMeetingStatus, addPayslip, addAnnouncement, registerEmployee, addEvent, updateEvent, markNotificationsAsRead, updateUserStatus, resetUserPassword, importEmployees, updateUserRole }}
+          actions={{ addTimeOffRequest, updateTimeOffStatus, addMeetingRequest, updateMeetingStatus, addPayslip, addBatchPayslips, addAnnouncement, registerEmployee, addEvent, updateEvent, markNotificationsAsRead, updateUserStatus, resetUserPassword, importEmployees, updateUserRole }}
         />
       </>
     );

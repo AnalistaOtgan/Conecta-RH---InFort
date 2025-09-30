@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { TimeOffRequest, MeetingRequest, RequestStatus } from '../../types';
 
@@ -36,12 +37,12 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ timeOffRequests, meetingReque
         <StatCard 
             title="Folgas Pendentes" 
             value={pendingTimeOff}
-            icon={<svg className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+            icon={<svg className="h-6 w-6 text-slate-600" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>}
         />
         <StatCard 
             title="Reuniões Pendentes" 
             value={pendingMeetings}
-            icon={<svg className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+            icon={<svg className="h-6 w-6 text-slate-600" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>}
         />
       </div>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, AppNotification, Role, Announcement, Event } from '../../types';
 import NotificationPanel from './NotificationPanel';
 
@@ -13,14 +14,14 @@ interface HeaderProps {
     appNotifications: AppNotification[];
   };
   markNotificationsAsRead: () => void;
-  setActiveView: (view: string) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ user, onLogout, toggleSidebar, data, markNotificationsAsRead, setActiveView }) => {
+const Header: React.FC<HeaderProps> = ({ user, onLogout, toggleSidebar, data, markNotificationsAsRead }) => {
   const [isPanelOpen, setPanelOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<{ employees: User[], announcements: Announcement[], events: Event[] }>({ employees: [], announcements: [], events: [] });
   const [isResultsOpen, setResultsOpen] = useState(false);
+  const navigate = useNavigate();
 
   const notifications = data.appNotifications.filter(n => n.userId === user.id);
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -98,7 +99,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, toggleSidebar, data, ma
   }, [searchQuery, data, user.id, user.role]);
 
   const handleResultClick = (view: string) => {
-    setActiveView(view);
+    navigate(`/${view}`);
     setSearchQuery('');
     setResultsOpen(false);
   };
@@ -195,7 +196,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, toggleSidebar, data, ma
             <NotificationPanel
               notifications={notifications}
               onClose={() => setPanelOpen(false)}
-              setActiveView={setActiveView}
             />
           )}
         </div>

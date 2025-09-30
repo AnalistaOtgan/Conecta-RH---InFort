@@ -1,10 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppNotification } from '../../types';
 
 interface NotificationPanelProps {
   notifications: AppNotification[];
   onClose: () => void;
-  setActiveView: (view: string) => void;
 }
 
 const timeAgo = (timestamp: string): string => {
@@ -26,9 +26,11 @@ const timeAgo = (timestamp: string): string => {
 };
 
 
-const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, onClose, setActiveView }) => {
+const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, onClose }) => {
+  const navigate = useNavigate();
+  
   const handleNotificationClick = (notification: AppNotification) => {
-    setActiveView(notification.link);
+    navigate(`/${notification.link}`);
     onClose();
   };
   

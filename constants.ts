@@ -1,11 +1,11 @@
 import { Role, User, Payslip, TimeOffRequest, RequestStatus, TimeOffType, MeetingRequest, Announcement, Event, AppNotification, LogEntry } from './types';
 
 export const USERS: User[] = [
-  { id: 1, name: 'Ana Silva', email: 'ana@email.com', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'ATIVO' },
-  { id: 2, name: 'Carlos Pereira', email: 'carlos@email.com', role: Role.RH, password: 'password', needsPasswordSetup: false, status: 'ATIVO' },
-  { id: 3, name: 'Beatriz Costa', email: 'beatriz@email.com', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'ATIVO' },
-  { id: 4, name: 'Davi Souza', email: 'davi@email.com', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'INATIVO' },
-  { id: 5, name: 'Analista RH', email: 'analista@email.com', role: Role.RH, password: 'admin123', needsPasswordSetup: false, status: 'ATIVO' },
+  { id: 1, name: 'Ana Silva', email: 'ana@email.com', cpf: '11122233344', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'ATIVO' },
+  { id: 2, name: 'Carlos Pereira', email: 'carlos@email.com', cpf: '22233344455', role: Role.RH, password: 'password', needsPasswordSetup: false, status: 'ATIVO' },
+  { id: 3, name: 'Beatriz Costa', email: 'beatriz@email.com', cpf: '33344455566', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'ATIVO' },
+  { id: 4, name: 'Davi Souza', email: 'davi@email.com', cpf: '44455566677', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'INATIVO' },
+  { id: 5, name: 'Analista RH', email: 'analista@email.com', cpf: '55566677788', role: Role.RH, password: 'admin123', needsPasswordSetup: false, status: 'ATIVO' },
 ];
 
 export const PAYSLIPS: Payslip[] = [

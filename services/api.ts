@@ -100,22 +100,26 @@ export const api = {
   // WRITE operations
   // ===================================
 
-  async registerEmployee(name: string, email: string, adminUser: User, emergencyPhone?: string): Promise<User> {
+  async registerEmployee(name: string, email: string, cpf: string, adminUser: User, emergencyPhone?: string): Promise<User> {
     await delay(500);
     if (USERS.some(u => u.email.toLowerCase() === email.toLowerCase())) {
       throw new Error('Este email já está em uso.');
+    }
+    if (USERS.some(u => u.cpf === cpf)) {
+        throw new Error('Este CPF já está em uso.');
     }
     const newUser: User = {
         id: Date.now(),
         name,
         email,
+        cpf,
         role: Role.FUNCIONARIO,
         needsPasswordSetup: true,
         status: 'ATIVO',
         emergencyPhone: emergencyPhone || undefined,
     };
     USERS.push(newUser); // Mutating mock data
-    addLog(adminUser, LogActionType.CADASTRO_USUARIO, `Cadastrou o novo usuário '${name}' (${email}).`);
+    addLog(adminUser, LogActionType.CADASTRO_USUARIO, `Cadastrou o novo usuário '${name}' (CPF: ${cpf}, Email: ${email}).`);
     return Promise.resolve(newUser);
   },
 
@@ -148,6 +152,7 @@ export const api = {
         id: Date.now() + index,
         name: String(name),
         email: email,
+        cpf: String(Date.now() + index).slice(-11), // Mock CPF
         role: Role.FUNCIONARIO,
         needsPasswordSetup: true,
         status: 'ATIVO',
@@ -260,6 +265,24 @@ export const api = {
       PAYSLIPS.push(newPayslip);
       addLog(adminUser, LogActionType.LANCAMENTO_CONTRACHEQUE, `Lançou o contracheque de ${payslipData.month}/${payslipData.year} para '${employee?.name || 'ID desconhecido'}'.`);
       return Promise.resolve(newPayslip);
+  },
+
+  async addBatchPayslips(payslipsData: Omit<Payslip, 'id' | 'fileUrl'>[], adminUser: User): Promise<{ newPayslips: Payslip[], successCount: number }> {
+      await delay(1000);
+      const newPayslips: Payslip[] = [];
+      payslipsData.forEach((p, index) => {
+          const newPayslip: Payslip = {
+              ...p,
+              id: `p-batch-${Date.now()}-${index}`,
+              fileUrl: `/payslips/batch-${Date.now()}-${index}.pdf`,
+          };
+          newPayslips.push(newPayslip);
+      });
+
+      PAYSLIPS.push(...newPayslips);
+      addLog(adminUser, LogActionType.LANCAMENTO_CONTRACHEQUE, `Lançou ${newPayslips.length} contracheque(s) em lote.`);
+      
+      return Promise.resolve({ newPayslips, successCount: newPayslips.length });
   },
 
   async addAnnouncement(announcementData: Omit<Announcement, 'id' | 'date'>, adminUser: User): Promise<Announcement> {

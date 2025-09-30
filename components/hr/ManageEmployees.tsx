@@ -250,19 +250,31 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
 interface RegisterEmployeeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (name: string, email: string, emergencyPhone?: string) => void;
+  onSubmit: (name: string, email: string, cpf: string, emergencyPhone?: string) => void;
   users: User[];
 }
 
 const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, onClose, onSubmit, users }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [cpf, setCpf] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
   const [error, setError] = useState('');
+
+  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+    const maskedValue = value
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+        .slice(0, 14); // 11 digits + 3 separators
+    setCpf(maskedValue);
+  };
 
   const resetStateAndClose = () => {
     setName('');
     setEmail('');
+    setCpf('');
     setEmergencyPhone('');
     setError('');
     onClose();
@@ -270,12 +282,22 @@ const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanCpf = cpf.replace(/\D/g, '');
+
+    if (cleanCpf.length !== 11) {
+        setError('O CPF deve conter 11 dígitos.');
+        return;
+    }
     if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
         setError('Este email já está em uso.');
         return;
     }
+    if (users.some(u => u.cpf === cleanCpf)) {
+        setError('Este CPF já está em uso.');
+        return;
+    }
     setError('');
-    onSubmit(name, email, emergencyPhone);
+    onSubmit(name, email, cleanCpf, emergencyPhone);
     resetStateAndClose();
   };
   
@@ -301,6 +323,18 @@ const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, o
                     id="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="cpf" className="block text-sm font-medium text-slate-700">CPF</label>
+                  <input
+                    type="text"
+                    id="cpf"
+                    value={cpf}
+                    onChange={handleCpfChange}
+                    placeholder="000.000.000-00"
                     className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
                     required
                   />
@@ -347,7 +381,7 @@ interface ManageEmployeesProps {
   onUpdateStatus: (userId: number, status: 'ATIVO' | 'INATIVO') => void;
   onResetPassword: (userId: number) => void;
   onImport: (data: any[]) => Promise<ImportResult>;
-  onRegister: (name: string, email: string, emergencyPhone?: string) => void;
+  onRegister: (name: string, email: string, cpf: string, emergencyPhone?: string) => void;
   onUpdateRole: (userId: number, role: Role) => void;
 }
 
