@@ -28,29 +28,60 @@ const actionColors: { [key in LogActionType]: string } = {
 const ActivityLog: React.FC<ActivityLogProps> = ({ logs, adminUsers }) => {
   const [adminFilter, setAdminFilter] = useState<string>('ALL');
   const [actionFilter, setActionFilter] = useState<string>('ALL');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
       const adminMatch = adminFilter === 'ALL' || log.adminId === Number(adminFilter);
       const actionMatch = actionFilter === 'ALL' || log.action === actionFilter;
-      return adminMatch && actionMatch;
+      
+      const logDate = new Date(log.timestamp);
+      // Adjust start date to be beginning of the day and end date to be end of the day for inclusive filtering
+      const startMatch = !startDate || logDate >= new Date(startDate + 'T00:00:00');
+      const endMatch = !endDate || logDate <= new Date(endDate + 'T23:59:59');
+
+      return adminMatch && actionMatch && startMatch && endMatch;
     });
-  }, [logs, adminFilter, actionFilter]);
+  }, [logs, adminFilter, actionFilter, startDate, endDate]);
   
   const clearFilters = () => {
     setAdminFilter('ALL');
     setActionFilter('ALL');
+    setStartDate('');
+    setEndDate('');
   }
 
   return (
     <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md">
       <div className="sm:flex sm:items-center sm:justify-between mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Log de Atividades</h2>
-        <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0 items-center">
+        <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row sm:flex-wrap gap-2 items-center">
+            <div className="flex items-center space-x-2">
+                <input
+                    id="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={e => setStartDate(e.target.value)}
+                    className="block w-full sm:w-auto pl-3 pr-2 py-2 text-base bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm rounded-md"
+                    aria-label="Data de Início"
+                />
+                 <span className="text-slate-500">até</span>
+                <input
+                    id="endDate"
+                    type="date"
+                    value={endDate}
+                    onChange={e => setEndDate(e.target.value)}
+                    min={startDate}
+                    className="block w-full sm:w-auto pl-3 pr-2 py-2 text-base bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm rounded-md"
+                    aria-label="Data de Fim"
+                />
+            </div>
             <select
               value={adminFilter}
               onChange={e => setAdminFilter(e.target.value)}
               className="block w-full sm:w-auto pl-3 pr-10 py-2 text-base bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm rounded-md"
+              aria-label="Filtrar por administrador"
             >
               <option value="ALL">Todos os Admins</option>
               {adminUsers.map(user => (
@@ -61,23 +92,24 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ logs, adminUsers }) => {
               value={actionFilter}
               onChange={e => setActionFilter(e.target.value)}
               className="block w-full sm:w-auto pl-3 pr-10 py-2 text-base bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm rounded-md"
+              aria-label="Filtrar por tipo de ação"
             >
               <option value="ALL">Todas as Ações</option>
-              {Object.values(LogActionType).map(action => (
+              {Object.values(LogActionType).sort().map(action => (
                 <option key={action} value={action}>{action}</option>
               ))}
             </select>
-            <button onClick={clearFilters} className="text-sm text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md">Limpar Filtros</button>
+            <button onClick={clearFilters} className="text-sm text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md transition-colors">Limpar Filtros</button>
         </div>
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Data/Hora</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Administrador</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Ação</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Detalhes</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Data/Hora</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Administrador</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Ação</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Detalhes</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-slate-200">
@@ -99,7 +131,7 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ logs, adminUsers }) => {
         </table>
         {filteredLogs.length === 0 && (
           <div className="text-center py-10 text-slate-500">
-            Nenhum registro encontrado para os filtros selecionados.
+            <p>Nenhum registro encontrado para os filtros selecionados.</p>
           </div>
         )}
       </div>
