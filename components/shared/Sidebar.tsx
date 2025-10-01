@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { User, Role } from '../../types';
@@ -32,7 +33,6 @@ const Sidebar: React.FC<SidebarProps> = ({ user, isOpen, setOpen }) => {
     { to: '/manage-timeoff', label: 'Gerenciar Folgas', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2zm-8 4H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z"/></svg> },
     { to: '/manage-meetings', label: 'Gerenciar Reuniões', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 15h7v2H7zm0-4h10v2H7zm0-4h10v2H7zm12-4h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-.14 0-.27.01-.4.04a2.008 2.008 0 0 0-1.44 1.19c-.1.23-.16.49-.16.77v14c0 .27.06.54.16.78s.25.45.43.64c.27.27.62.47 1.01.55c.13.02.26.03.4.03h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7-.25c.41 0 .75.34.75.75s-.34.75-.75.75s-.75-.34-.75-.75s.34-.75.75-.75zM19 19H5V5h14v14z"/></svg> },
     { to: '/upload-payslip', label: 'Lançar Contracheque', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M13.17 4L18 8.83V20H6V4h7.17M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm1 9h-4v1h3c.55 0 1 .45 1 1v3c0 .55-.45 1-1 1h-1v1h-2v-1H9v-2h4v-1h-3c-.55 0-1-.45-1-1v-3c0 .55.45-1 1-1h1V8h2v1h2v2z"/></svg> },
-    { to: '/batch-upload-payslip', label: 'Lançar em Lote', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 13v4h-2v-4H8l4-4 4 4h-3zm4-8V4.5L18.5 9H13z"/></svg> },
     { to: '/post-announcement', label: 'Publicar Informativo', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="9" r="4"/><path d="M9 15c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm7.76-9.64l-1.68 1.69c.84 1.18.84 2.71 0 3.89l1.68 1.69c2.02-2.02 2.02-5.07 0-7.27zM20.07 2l-1.63 1.63c2.77 3.02 2.77 7.56 0 10.74L20.07 16c3.9-3.89 3.91-9.95 0-14z"/></svg> },
     { to: '/manage-employees', label: 'Gerenciar Funcionários', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><circle cx="10" cy="8" r="4"/><path d="M10.67 13.02c-.22-.01-.44-.02-.67-.02c-2.42 0-4.68.67-6.61 1.82c-.88.52-1.39 1.5-1.39 2.53V20h9.26a6.963 6.963 0 0 1-.59-6.98zM20.75 16c0-.22-.03-.42-.06-.63l1.14-1.01l-1-1.73l-1.45.49c-.32-.27-.68-.48-1.08-.63L18 11h-2l-.3 1.49c-.4.15-.76.36-1.08.63l-1.45-.49l-1 1.73l1.14 1.01c-.03.21-.06.41-.06.63s.03.42.06.63l-1.14 1.01l1 1.73l1.45-.49c.32.27.68.48 1.08.63L16 21h2l.3-1.49c.4-.15.76.36 1.08-.63l1.45.49l1-1.73l-1.14-1.01c.03-.21.06-.41.06-.63zM17 18c-1.1 0-2-.9-2-2s.9-2 2-2s2 .9 2 2s-.9 2-2 2z"/></svg> },
     { to: '/manage-events', label: 'Gerenciar Eventos', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg> },
@@ -40,7 +40,10 @@ const Sidebar: React.FC<SidebarProps> = ({ user, isOpen, setOpen }) => {
     { href: 'http://fmarechal.com/feedfort/', label: 'Sistema de Feedback', icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M23 8c0 1.1-.9 2-2 2a1.7 1.7 0 0 1-.51-.07l-3.56 3.55c.05.16.07.34.07.52c0 1.1-.9 2-2 2s-2-.9-2-2c0-.18.02-.36.07-.52l-2.55-2.55c-.16.05-.34.07-.52.07s-.36-.02-.52-.07l-4.55 4.56c.05.16.07.33.07.51c0 1.1-.9 2-2 2s-2-.9-2-2s.9-2 2-2c.18 0 .35.02.51.07l4.56-4.55C8.02 9.36 8 9.18 8 9c0-1.1.9-2 2-2s2 .9 2 2c0 .18-.02.36-.07.52l2.55 2.55c.16-.05.34-.07.52-.07s.36.02.52.07l3.55-3.56A1.7 1.7 0 0 1 19 8c0-1.1.9-2 2-2s2 .9 2 2z"/></svg> },
   ];
 
-  const links: Array<{ to?: string; href?: string; label: string; icon: React.ReactElement; }> = user.role === Role.FUNCIONARIO ? employeeLinks : hrLinks;
+  const links: Array<{ to?: string; href?: string; label: string; icon: React.ReactElement; }> = 
+    user.role === Role.FUNCIONARIO ? employeeLinks
+    : user.role === Role.ADMIN ? hrLinks
+    : hrLinks.filter(link => link.to !== '/activity-log');
 
   return (
     <>

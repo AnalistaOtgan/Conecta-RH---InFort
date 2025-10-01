@@ -20,6 +20,9 @@ const actionColors: { [key in LogActionType]: string } = {
     [LogActionType.PUBLICACAO_INFORMATIVO]: 'bg-cyan-100 text-cyan-800',
     [LogActionType.CRIACAO_EVENTO]: 'bg-blue-100 text-blue-800',
     [LogActionType.ATUALIZACAO_EVENTO]: 'bg-yellow-100 text-yellow-800',
+    // FIX: Add missing log action types to the color map.
+    [LogActionType.ARQUIVAMENTO_REGISTRO]: 'bg-slate-100 text-slate-800',
+    [LogActionType.EXCLUSAO_PERMANENTE]: 'bg-red-100 text-red-800',
 };
 
 const ActivityLog: React.FC<ActivityLogProps> = ({ logs, adminUsers }) => {

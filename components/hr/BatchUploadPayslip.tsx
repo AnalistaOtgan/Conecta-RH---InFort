@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { User, Payslip } from '../../types';
 
@@ -24,12 +25,12 @@ const BatchUploadPayslip: React.FC<BatchUploadPayslipProps> = ({ users, payslips
   const [isProcessing, setIsProcessing] = useState(false);
   const [importResult, setImportResult] = useState<{ successCount: number } | null>(null);
 
-  const usersByCpf = useMemo(() => new Map(users.map(u => [u.cpf, u])), [users]);
+  const usersByMatricula = useMemo(() => new Map(users.map(u => [u.matricula, u])), [users]);
   const existingPayslipsSet = useMemo(() => new Set(payslips.map(p => `${p.userId}-${p.month}-${p.year}`)), [payslips]);
 
   const parseAndValidateFiles = (files: FileList) => {
     const newParsedFiles: ParsedFileData[] = [];
-    const filenameRegex = /^(\d{11})-(\d{2})-(\d{4})\.pdf$/i;
+    const filenameRegex = /^(\d{8})-(\d{2})-(\d{4})\.pdf$/i;
 
     for (const file of Array.from(files)) {
       const match = file.name.match(filenameRegex);
@@ -38,13 +39,13 @@ const BatchUploadPayslip: React.FC<BatchUploadPayslipProps> = ({ users, payslips
         continue;
       }
 
-      const [, cpf, monthStr, yearStr] = match;
+      const [, matricula, monthStr, yearStr] = match;
       const month = parseInt(monthStr, 10);
       const year = parseInt(yearStr, 10);
-      const user = usersByCpf.get(cpf);
+      const user = usersByMatricula.get(matricula);
 
       if (!user) {
-        newParsedFiles.push({ file, status: 'error', errorMessage: 'CPF não encontrado.' });
+        newParsedFiles.push({ file, status: 'error', errorMessage: 'Matrícula não encontrada.' });
         continue;
       }
       
@@ -110,9 +111,9 @@ const BatchUploadPayslip: React.FC<BatchUploadPayslipProps> = ({ users, payslips
             <h4 className="font-semibold text-slate-700">Instruções</h4>
             <ul className="list-disc list-inside text-sm text-slate-600 mt-2 space-y-1">
                 <li>Arraste e solte os arquivos PDF ou clique para selecionar.</li>
-                <li>O nome de cada arquivo deve seguir o padrão: <code className="bg-slate-200 px-1 rounded">[CPF]-[MM]-[AAAA].pdf</code>.</li>
-                <li>Exemplo: <code className="bg-slate-200 px-1 rounded">12345678900-05-2024.pdf</code>.</li>
-                <li>O CPF deve conter 11 dígitos, sem pontos ou traços.</li>
+                <li>O nome de cada arquivo deve seguir o padrão: <code className="bg-slate-200 px-1 rounded">[MATRICULA]-[MM]-[AAAA].pdf</code>.</li>
+                <li>Exemplo: <code className="bg-slate-200 px-1 rounded">00001001-05-2024.pdf</code>.</li>
+                <li>A matrícula deve conter 8 dígitos.</li>
             </ul>
         </div>
         

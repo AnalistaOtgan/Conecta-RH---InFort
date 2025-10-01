@@ -23,6 +23,68 @@ const getSessionUser = (): User | null => {
   return null;
 };
 
+const generateBirthdayAnnouncements = (users: User[], existingAnnouncements: Announcement[]): Announcement[] => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1; // 1-12
+    const currentDay = today.getDate();
+    const newAnnouncements: Announcement[] = [];
+
+    // --- Generate Daily Birthday Announcements ---
+    const dailyBirthdayUsers = users.filter(user => {
+        if (!user.birthDate || user.status !== 'ATIVO') return false;
+        const [_year, month, day] = user.birthDate.split('-').map(Number);
+        return month === currentMonth && day === currentDay;
+    });
+
+    dailyBirthdayUsers.forEach(user => {
+        const announcementId = `ann-bday-day-${currentYear}-${currentMonth}-${currentDay}-${user.id}`;
+        if (!existingAnnouncements.some(ann => ann.id === announcementId)) {
+            newAnnouncements.push({
+                id: announcementId,
+                title: `Hoje é dia de ${user.name}!`,
+                content: `Feliz aniversário, ${user.name}! Desejamos a você um dia incrível e um ano novo cheio de alegrias e conquistas. 🎉`,
+                imageUrl: user.photoUrl,
+                date: today.toISOString().split('T')[0],
+                status: 'ACTIVE',
+            });
+        }
+    });
+
+    // --- Generate Monthly Birthday Announcement ---
+    const monthlyAnnouncementId = `ann-bday-month-${currentYear}-${currentMonth}`;
+    if (!existingAnnouncements.some(ann => ann.id === monthlyAnnouncementId)) {
+        const monthlyBirthdayUsers = users
+            .filter(user => {
+                if (!user.birthDate || user.status !== 'ATIVO') return false;
+                const [_year, month, _day] = user.birthDate.split('-').map(Number);
+                return month === currentMonth;
+            })
+            .sort((a, b) => {
+                const dayA = Number(a.birthDate!.split('-')[2]);
+                const dayB = Number(b.birthDate!.split('-')[2]);
+                return dayA - dayB;
+            });
+            
+        if (monthlyBirthdayUsers.length > 0) {
+            const content = monthlyBirthdayUsers.map(user => {
+                const day = user.birthDate!.split('-')[2];
+                return `${user.name.split(' ')[0]} - Dia ${day}`;
+            }).join('\n');
+            
+            newAnnouncements.push({
+                id: monthlyAnnouncementId,
+                title: 'Aniversariantes do Mês',
+                content: `Parabéns aos nossos talentos que celebram mais um ano de vida este mês!\n\n${content}`,
+                imageUrl: 'https://picsum.photos/seed/birthdays/800/400',
+                date: new Date(currentYear, currentMonth - 1, 1).toISOString().split('T')[0],
+                status: 'ACTIVE',
+            });
+        }
+    }
+    
+    return newAnnouncements;
+}
 
 const App: React.FC = () => {
   const [currentUser, _setCurrentUser] = useState<User | null>(getSessionUser());
@@ -59,7 +121,7 @@ const App: React.FC = () => {
   };
   
   const refreshLogs = useCallback(async () => {
-    if (currentUser?.role === Role.RH) {
+    if (currentUser?.role === Role.ADMIN) {
         try {
             const logsData = await api.getLogs();
             setLogs(logsData);
@@ -78,7 +140,7 @@ const App: React.FC = () => {
           payslipsData,
           timeOffData,
           meetingData,
-          announcementsData,
+          announcementsDataFromApi,
           eventsData,
           notificationsData,
           logsData,
@@ -90,8 +152,12 @@ const App: React.FC = () => {
           api.getAnnouncements(),
           api.getEvents(),
           api.getAppNotifications(),
-          api.getLogs(), // Only relevant for RH but load for simplicity
+          api.getLogs(),
         ]);
+
+        const birthdayAnnouncements = generateBirthdayAnnouncements(usersData, announcementsDataFromApi);
+        const announcementsData = [...birthdayAnnouncements, ...announcementsDataFromApi];
+
         setUsers(usersData);
         setPayslips(payslipsData);
         setTimeOffRequests(timeOffData);
@@ -270,10 +336,22 @@ const App: React.FC = () => {
     try {
         const updatedUser = await api.updateUserRole(userId, role, currentUser);
         setUsers(prev => prev.map(u => (u.id === userId ? updatedUser : u)));
-        showNotification(`${updatedUser.name} foi promovido(a) para ${role}.`, 'success');
+        showNotification(`${updatedUser.name} agora tem o cargo de ${role}.`, 'success');
         refreshLogs();
-    } catch (error) {
-        showNotification('Erro ao atualizar o cargo do funcionário.', 'error');
+    } catch (error: any) {
+        showNotification(error.message || 'Erro ao atualizar o cargo do funcionário.', 'error');
+    }
+  }, [currentUser, refreshLogs]);
+
+  const deleteUser = useCallback(async (userId: number) => {
+    if (!currentUser || currentUser.role !== Role.ADMIN) return;
+    try {
+        await api.deleteUser(userId, currentUser);
+        setUsers(prev => prev.filter(u => u.id !== userId));
+        showNotification('Usuário excluído com sucesso.', 'info');
+        refreshLogs();
+    } catch (error: any) {
+        showNotification(error.message || 'Erro ao excluir usuário.', 'error');
     }
   }, [currentUser, refreshLogs]);
 
@@ -284,7 +362,7 @@ const App: React.FC = () => {
         setTimeOffRequests(prev => [newRequest, ...prev]);
         showNotification('Solicitação de folga enviada com sucesso!', 'success');
         
-        const hrUsers = users.filter(u => u.role === Role.RH);
+        const hrUsers = users.filter(u => u.role === Role.RH || u.role === Role.ADMIN);
         hrUsers.forEach(hr => {
             addAppNotification(hr.id, `Nova solicitação de folga de ${currentUser.name}.`, 'manage-timeoff');
         });
@@ -313,7 +391,7 @@ const App: React.FC = () => {
         setMeetingRequests(prev => [...prev, newRequest]);
         showNotification('Agendamento de reunião solicitado com sucesso!', 'success');
 
-        const hrUsers = users.filter(u => u.role === Role.RH);
+        const hrUsers = users.filter(u => u.role === Role.RH || u.role === Role.ADMIN);
         hrUsers.forEach(hr => {
             addAppNotification(hr.id, `Nova solicitação de reunião de ${currentUser.name}.`, 'manage-meetings');
         });
@@ -378,6 +456,30 @@ const App: React.FC = () => {
     }
   }, [currentUser, refreshLogs]);
 
+  const updateAnnouncementStatus = useCallback(async (announcementId: string, status: 'ACTIVE' | 'ARCHIVED') => {
+    if (!currentUser || currentUser.role === Role.FUNCIONARIO) return;
+    try {
+        const updatedAnnouncement = await api.updateAnnouncementStatus(announcementId, status, currentUser);
+        setAnnouncements(prev => prev.map(a => a.id === announcementId ? updatedAnnouncement : a));
+        showNotification(`Informativo ${status === 'ARCHIVED' ? 'arquivado' : 'reativado'} com sucesso.`, 'info');
+        if(status === 'ARCHIVED') refreshLogs();
+    } catch (error) {
+        showNotification('Erro ao atualizar informativo.', 'error');
+    }
+  }, [currentUser, refreshLogs]);
+  
+  const deleteAnnouncement = useCallback(async (announcementId: string) => {
+    if (!currentUser || currentUser.role !== Role.ADMIN) return;
+    try {
+        await api.deleteAnnouncement(announcementId, currentUser);
+        setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
+        showNotification('Informativo excluído com sucesso.', 'info');
+        refreshLogs();
+    } catch (error) {
+        showNotification('Erro ao excluir informativo.', 'error');
+    }
+  }, [currentUser, refreshLogs]);
+
   const addEvent = useCallback(async (event: Omit<Event, 'id'>) => {
     if (!currentUser) return;
     try {
@@ -406,6 +508,18 @@ const App: React.FC = () => {
     }
   }, [currentUser, refreshLogs]);
 
+  const deleteEvent = useCallback(async (eventId: string) => {
+    if (!currentUser || currentUser.role !== Role.ADMIN) return;
+    try {
+        await api.deleteEvent(eventId, currentUser);
+        setEvents(prev => prev.filter(e => e.id !== eventId));
+        showNotification('Evento excluído com sucesso.', 'info');
+        refreshLogs();
+    } catch (error) {
+        showNotification('Erro ao excluir evento.', 'error');
+    }
+  }, [currentUser, refreshLogs]);
+
   if (isLoading) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-slate-100">
@@ -428,7 +542,7 @@ const App: React.FC = () => {
           user={currentUser}
           onLogout={handleLogout}
           data={{ users, payslips, timeOffRequests, meetingRequests, announcements, events, appNotifications, logs }}
-          actions={{ addTimeOffRequest, updateTimeOffStatus, addMeetingRequest, updateMeetingStatus, addPayslip, addBatchPayslips, addAnnouncement, registerEmployee, addEvent, updateEvent, markNotificationsAsRead, updateUserStatus, resetUserPassword, importEmployees, updateUserRole }}
+          actions={{ addTimeOffRequest, updateTimeOffStatus, addMeetingRequest, updateMeetingStatus, addPayslip, addBatchPayslips, addAnnouncement, registerEmployee, addEvent, updateEvent, markNotificationsAsRead, updateUserStatus, resetUserPassword, importEmployees, updateUserRole, deleteUser, deleteEvent, updateAnnouncementStatus, deleteAnnouncement }}
         />
       </>
     );

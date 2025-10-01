@@ -1,8 +1,8 @@
 
-
 export enum Role {
   FUNCIONARIO = 'Funcionário',
-  RH = 'RH'
+  RH = 'RH',
+  ADMIN = 'Administrador'
 }
 
 export interface User {
@@ -10,11 +10,14 @@ export interface User {
   name: string;
   email: string;
   cpf: string;
+  matricula: string;
   role: Role;
   password?: string;
   needsPasswordSetup?: boolean;
   emergencyPhone?: string;
   status: 'ATIVO' | 'INATIVO';
+  birthDate?: string; // YYYY-MM-DD
+  photoUrl?: string;
 }
 
 export interface Payslip {
@@ -64,6 +67,7 @@ export interface Announcement {
   content?: string;
   imageUrl?: string;
   date: string;
+  status?: 'ACTIVE' | 'ARCHIVED';
 }
 
 export interface Notification {
@@ -110,6 +114,8 @@ export enum LogActionType {
   PUBLICACAO_INFORMATIVO = 'Publicação de Informativo',
   CRIACAO_EVENTO = 'Criação de Evento',
   ATUALIZACAO_EVENTO = 'Atualização de Evento',
+  ARQUIVAMENTO_REGISTRO = 'Arquivamento de Registro',
+  EXCLUSAO_PERMANENTE = 'Exclusão Permanente',
 }
 
 export interface LogEntry {

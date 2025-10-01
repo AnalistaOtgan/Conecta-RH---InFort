@@ -5,10 +5,11 @@ import { User, Announcement } from '../../types';
 interface EmployeeDashboardProps {
   user: User;
   announcements: Announcement[];
+  onAnnouncementClick: (announcement: Announcement) => void;
 }
 
-const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user, announcements }) => {
-  const latestAnnouncements = announcements.slice(0, 3);
+const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user, announcements, onAnnouncementClick }) => {
+  const latestAnnouncements = announcements.filter(a => a.status !== 'ARCHIVED').slice(0, 3);
 
   return (
     <div>
@@ -21,18 +22,22 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ user, announcemen
           {latestAnnouncements.length > 0 ? (
             <div className="space-y-4">
               {latestAnnouncements.map((ann) => (
-                <div key={ann.id} className="border-b border-slate-200 pb-4 last:border-b-0">
+                <button
+                  key={ann.id}
+                  onClick={() => onAnnouncementClick(ann)}
+                  className="w-full text-left p-4 border-b border-slate-200 last:border-b-0 hover:bg-slate-50 rounded-lg transition-colors"
+                >
                    {ann.imageUrl && (
                     <img src={ann.imageUrl} alt={ann.title} className="w-full h-40 object-cover rounded-md mb-3" />
                   )}
-                  <div className="flex justify-between items-center">
-                     <p className="font-medium text-slate-800">{ann.title}</p>
-                     <span className="text-sm text-slate-500">{new Date(ann.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</span>
+                  <div className="flex justify-between items-start">
+                     <p className="font-medium text-slate-800 mr-4">{ann.title}</p>
+                     <span className="text-sm text-slate-500 flex-shrink-0">{new Date(ann.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</span>
                   </div>
                   {ann.content && (
-                    <p className="text-sm text-slate-600 mt-1">{ann.content}</p>
+                    <p className="text-sm text-slate-600 mt-1 line-clamp-2" style={{ whiteSpace: 'pre-wrap' }}>{ann.content}</p>
                   )}
-                </div>
+                </button>
               ))}
             </div>
           ) : (

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Role, ImportResult } from '../../types';
 import ConfirmationDialog from '../shared/ConfirmationDialog';
 
@@ -81,7 +81,7 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
   };
   
   const downloadTemplate = () => {
-      const csvContent = "data:text/csv;charset=utf-8,Nome Completo,Email,Telefone de Emergencia\nExemplo Nome,exemplo@email.com,11999998888";
+      const csvContent = "data:text/csv;charset=utf-8,Nome Completo,Email,Matrícula,Telefone de Emergencia\nExemplo Nome,exemplo@email.com,00001001,11999998888";
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
@@ -94,7 +94,7 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
   const downloadErrorDetails = () => {
     if (!result || result.errors.length === 0) return;
 
-    const headers = ["Linha no Arquivo", "Nome Completo", "Email", "Telefone de Emergencia", "Motivo do Erro"];
+    const headers = ["Linha no Arquivo", "Nome Completo", "Email", "Matrícula", "Telefone de Emergencia", "Motivo do Erro"];
     const csvRows = [headers.join(',')];
 
     result.errors.forEach(err => {
@@ -107,6 +107,7 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
             err.row,
             toCsvField(err.data['Nome Completo']),
             toCsvField(err.data['Email']),
+            toCsvField(err.data['Matrícula']),
             toCsvField(err.data['Telefone de Emergencia']),
             toCsvField(err.reason)
         ];
@@ -148,8 +149,8 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
                         <h4 className="font-semibold text-slate-700">Instruções</h4>
                         <ul className="list-disc list-inside text-sm text-slate-600 mt-2 space-y-1">
                             <li>O arquivo deve ser no formato <code className="bg-slate-200 px-1 rounded">.csv</code> ou <code className="bg-slate-200 px-1 rounded">.xlsx</code>.</li>
-                            <li>As colunas devem ser: <code className="bg-slate-200 px-1 rounded">Nome Completo</code>, <code className="bg-slate-200 px-1 rounded">Email</code>, <code className="bg-slate-200 px-1 rounded">Telefone de Emergencia</code>.</li>
-                            <li>A primeira linha do arquivo deve conter os nomes das colunas (cabeçalho).</li>
+                            <li>As colunas devem ser: <code className="bg-slate-200 px-1 rounded">Nome Completo</code>, <code className="bg-slate-200 px-1 rounded">Email</code>, <code className="bg-slate-200 px-1 rounded">Matrícula</code> (opcional), <code className="bg-slate-200 px-1 rounded">Telefone de Emergencia</code>.</li>
+                            <li>Se a matrícula não for fornecida, uma será gerada automaticamente.</li>
                         </ul>
                         <button onClick={downloadTemplate} className="text-sm mt-3 text-slate-600 hover:text-slate-900 font-medium">Baixar modelo</button>
                     </div>
@@ -377,57 +378,47 @@ const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, o
 // ==========================================================
 
 interface ManageEmployeesProps {
+  user: User;
   users: User[];
   onUpdateStatus: (userId: number, status: 'ATIVO' | 'INATIVO') => void;
   onResetPassword: (userId: number) => void;
   onImport: (data: any[]) => Promise<ImportResult>;
   onRegister: (name: string, email: string, cpf: string, emergencyPhone?: string) => void;
   onUpdateRole: (userId: number, role: Role) => void;
+  onDelete: (userId: number) => void;
 }
 
 const getStatusColor = (status: 'ATIVO' | 'INATIVO') => {
     return status === 'ATIVO' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800';
 };
 
-const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus, onResetPassword, onImport, onRegister, onUpdateRole }) => {
+const ManageEmployees: React.FC<ManageEmployeesProps> = ({ user: currentUser, users, onUpdateStatus, onResetPassword, onImport, onRegister, onUpdateRole, onDelete }) => {
   const [filter, setFilter] = useState('');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [confirmationAction, setConfirmationAction] = useState<(() => void) | null>(null);
   const [confirmationDetails, setConfirmationDetails] = useState({ title: '', message: '', confirmText: '' });
+  const [openActionMenu, setOpenActionMenu] = useState<number | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const handleStatusUpdateClick = (userId: number, currentStatus: 'ATIVO' | 'INATIVO') => {
-    const newStatus = currentStatus === 'ATIVO' ? 'INATIVO' : 'ATIVO';
-    setConfirmationDetails({
-        title: `${newStatus === 'ATIVO' ? 'Reativar' : 'Desativar'} Usuário`,
-        message: `Tem certeza que deseja ${newStatus === 'ATIVO' ? 'reativar' : 'desativar'} este usuário?`,
-        confirmText: `Sim, ${newStatus === 'ATIVO' ? 'Reativar' : 'Desativar'}`
-    });
-    setConfirmationAction(() => () => onUpdateStatus(userId, newStatus));
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+            setOpenActionMenu(null);
+        }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleAction = (action: () => void, {title, message, confirmText}: any) => {
+    setConfirmationDetails({ title, message, confirmText });
+    setConfirmationAction(() => () => action());
     setIsConfirmOpen(true);
+    setOpenActionMenu(null);
   };
-
-  const handleResetPasswordClick = (userId: number) => {
-    setConfirmationDetails({
-        title: 'Resetar Senha',
-        message: 'Tem certeza que deseja resetar a senha deste funcionário? O usuário precisará criar uma nova senha no próximo login.',
-        confirmText: 'Sim, Resetar'
-    });
-    setConfirmationAction(() => () => onResetPassword(userId));
-    setIsConfirmOpen(true);
-  };
-
-  const handlePromoteClick = (user: User) => {
-    setConfirmationDetails({
-        title: 'Promover Usuário',
-        message: `Tem certeza que deseja promover ${user.name} para o cargo de RH? Esta ação concederá privilégios administrativos.`,
-        confirmText: 'Sim, Promover'
-    });
-    setConfirmationAction(() => () => onUpdateRole(user.id, Role.RH));
-    setIsConfirmOpen(true);
-  };
-
+  
   const handleConfirm = () => {
     if (confirmationAction) {
       confirmationAction();
@@ -441,63 +432,42 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
   };
 
   const filteredUsers = useMemo(() => {
+    const sortedUsers = [...users].sort((a, b) => a.name.localeCompare(b.name));
     if (!filter) {
-      return users;
+      return sortedUsers;
     }
     const lowercasedFilter = filter.toLowerCase();
-    const numericFilter = filter.replace(/\D/g, '');
-
-    return users.filter(
-      user =>
+    return sortedUsers.filter(user =>
         user.name.toLowerCase().includes(lowercasedFilter) ||
         user.email.toLowerCase().includes(lowercasedFilter) ||
         user.role.toLowerCase().includes(lowercasedFilter) ||
-        (user.emergencyPhone && user.emergencyPhone.replace(/\D/g, '').includes(numericFilter))
+        user.matricula.includes(lowercasedFilter)
     );
   }, [users, filter]);
 
   const handleExportCSV = () => {
-    if (filteredUsers.length === 0) {
-      return; // Button is disabled, but as a safeguard.
-    }
-
-    const headers = ["Nome Completo", "Email", "Cargo", "Telefone de Contato", "Status"];
-    
-    const escapeCell = (cellData: string | undefined | null) => {
-        if (cellData == null) {
-            return '';
-        }
-        const str = String(cellData);
-        if (str.search(/("|,|\n)/g) >= 0) {
-            return `"${str.replace(/"/g, '""')}"`;
-        }
-        return str;
-    };
-
-    const rows = filteredUsers.map(user => 
-        [
-            escapeCell(user.name),
-            escapeCell(user.email),
-            escapeCell(user.role),
-            escapeCell(user.emergencyPhone),
-            escapeCell(user.status)
-        ].join(',')
-    );
-
+    if (filteredUsers.length === 0) return;
+    const headers = ["Nome Completo", "Email", "CPF", "Matrícula", "Cargo", "Telefone de Contato", "Status"];
+    const escapeCell = (cellData: any) => `"${String(cellData || '').replace(/"/g, '""')}"`;
+    const rows = filteredUsers.map(user => [
+        escapeCell(user.name), escapeCell(user.email), escapeCell(user.cpf),
+        escapeCell(user.matricula), escapeCell(user.role), escapeCell(user.emergencyPhone), escapeCell(user.status)
+    ].join(','));
     const csvContent = [headers.join(','), ...rows].join('\n');
-
     const bom = '\uFEFF';
     const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "usuarios.csv");
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
+    link.href = URL.createObjectURL(blob);
+    link.download = "lista_de_funcionarios.csv";
     link.click();
-    document.body.removeChild(link);
-};
+  };
 
+  const canEdit = (targetUser: User) => {
+      if (currentUser.id === targetUser.id) return false; // Cannot edit self
+      if (currentUser.role === Role.ADMIN) return true; // Admin can edit anyone
+      if (currentUser.role === Role.RH && targetUser.role !== Role.ADMIN) return true; // RH can edit non-admins
+      return false;
+  }
 
   return (
     <>
@@ -507,112 +477,78 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ users, onUpdateStatus
           <div className="mt-4 sm:mt-0 flex items-center space-x-2">
             <input
               type="text"
-              placeholder="Filtrar por nome, email, cargo..."
+              placeholder="Filtrar por nome, email, matrícula..."
               value={filter}
               onChange={e => setFilter(e.target.value)}
               className="block w-full sm:w-64 pl-3 pr-10 py-2 text-base bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm rounded-md"
             />
-             <button
-              onClick={handleExportCSV}
-              disabled={filteredUsers.length === 0}
-              className="inline-flex items-center justify-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Exportar
-            </button>
-             <button
-              onClick={() => setIsImportModalOpen(true)}
-              className="inline-flex items-center justify-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              Importar
-            </button>
-            <button
-              onClick={() => setIsRegisterModalOpen(true)}
-              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-800 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Novo Funcionário
-            </button>
+             <button onClick={handleExportCSV} disabled={filteredUsers.length === 0} className="inline-flex items-center justify-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>Exportar</button>
+             <button onClick={() => setIsImportModalOpen(true)} className="inline-flex items-center justify-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>Importar</button>
+            <button onClick={() => setIsRegisterModalOpen(true)} className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-800 hover:bg-slate-900">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>Novo</button>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Nome</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Cargo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Telefone de Contato</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-slate-200">
-              {filteredUsers.map(user => (
-                <tr key={user.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-slate-900">{user.name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{user.email}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{user.role}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{user.emergencyPhone || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(user.status)}`}>
-                      {user.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
-                    <button onClick={() => handleResetPasswordClick(user.id)} className="text-slate-600 hover:text-slate-900 transition-colors">Resetar Senha</button>
-                    <button
-                      onClick={() => handleStatusUpdateClick(user.id, user.status)}
-                      className={`${user.status === 'ATIVO' ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'} transition-colors`}
-                    >
-                      {user.status === 'ATIVO' ? 'Desativar' : 'Reativar'}
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredUsers.map(user => (
+            <div key={user.id} className="bg-white rounded-lg shadow-md border border-slate-200 flex flex-col p-4 relative transition-shadow hover:shadow-lg">
+                {canEdit(user) && (
+                  <div className="absolute top-2 right-2" ref={openActionMenu === user.id ? menuRef : null}>
+                    <button onClick={() => setOpenActionMenu(openActionMenu === user.id ? null : user.id)} className="p-2 rounded-full text-slate-500 hover:bg-slate-100">
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
                     </button>
-                    {user.role === Role.FUNCIONARIO && (
-                        <button onClick={() => handlePromoteClick(user)} className="text-blue-600 hover:text-blue-900 transition-colors">
-                            Promover a RH
-                        </button>
+                    {openActionMenu === user.id && (
+                        <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                            <div className="py-1" role="menu">
+                                <div className="px-4 py-2 text-xs text-gray-500 uppercase">Alterar Cargo</div>
+                                { (currentUser.role === Role.ADMIN) && (user.role !== Role.ADMIN) && <button onClick={() => handleAction(() => onUpdateRole(user.id, Role.ADMIN), {title: 'Promover a Admin', message:`Promover ${user.name} para Administrador?`, confirmText:'Sim, Promover'})} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Administrador</button>}
+                                { (user.role !== Role.RH) && <button onClick={() => handleAction(() => onUpdateRole(user.id, Role.RH), {title: `Promover ${user.role === Role.ADMIN ? 'ou Rebaixar ' : ''}a RH`, message:`Alterar o cargo de ${user.name} para RH?`, confirmText:'Sim, Alterar'})} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">RH</button>}
+                                { (user.role !== Role.FUNCIONARIO) && <button onClick={() => handleAction(() => onUpdateRole(user.id, Role.FUNCIONARIO), {title: 'Rebaixar a Funcionário', message:`Rebaixar ${user.name} para Funcionário?`, confirmText:'Sim, Rebaixar'})} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Funcionário</button>}
+                                <div className="border-t my-1"></div>
+                                <button onClick={() => handleAction(() => onResetPassword(user.id), {title: 'Resetar Senha', message: `Resetar a senha de ${user.name}?`, confirmText: 'Sim, Resetar'})} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Resetar Senha</button>
+                                <button onClick={() => handleAction(() => onUpdateStatus(user.id, user.status === 'ATIVO' ? 'INATIVO' : 'ATIVO'), {title: `${user.status === 'ATIVO' ? 'Desativar' : 'Reativar'} Usuário`, message:`${user.status === 'ATIVO' ? 'Desativar' : 'Reativar'} o usuário ${user.name}?`, confirmText:`Sim, ${user.status === 'ATIVO' ? 'Desativar' : 'Reativar'}`})} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">{user.status === 'ATIVO' ? 'Desativar' : 'Reativar'}</button>
+                                { currentUser.role === Role.ADMIN && 
+                                    <button onClick={() => handleAction(() => onDelete(user.id), {title: 'Excluir Usuário', message:`Excluir ${user.name} permanentemente? Esta ação é irreversível.`, confirmText: 'Sim, Excluir'})} className="w-full text-left block px-4 py-2 text-sm text-red-700 hover:bg-red-50">Excluir</button>
+                                }
+                            </div>
+                        </div>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredUsers.length === 0 && (
-            <div className="text-center py-10 text-slate-500">
-              Nenhum usuário encontrado.
+                  </div>
+                )}
+                <div className="flex flex-col items-center text-center flex-grow">
+                    <img className="h-20 w-20 rounded-full object-cover mb-3" src={user.photoUrl || `https://ui-avatars.com/api/?name=${user.name.replace(' ', '+')}&background=random`} alt={user.name} />
+                    <h3 className="text-md font-bold text-slate-800">{user.name}</h3>
+                    <p className="text-sm text-slate-500 truncate w-full" title={user.email}>{user.email}</p>
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-100 w-full text-sm text-slate-600 space-y-2">
+                    <div className="flex justify-between items-center">
+                        <span className="font-semibold">Matrícula:</span>
+                        <span>{user.matricula}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="font-semibold">Cargo:</span>
+                        <span>{user.role}</span>
+                    </div>
+                     <div className="flex justify-between items-center">
+                        <span className="font-semibold">Status:</span>
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(user.status)}`}>{user.status}</span>
+                    </div>
+                </div>
             </div>
-          )}
+          ))}
         </div>
+
+        {filteredUsers.length === 0 && (<div className="text-center py-16 text-slate-500">
+          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhum usuário encontrado</h3>
+          <p className="mt-1 text-sm text-gray-500">Tente ajustar seus filtros de busca.</p>
+        </div>)}
       </div>
-      <ConfirmationDialog
-        isOpen={isConfirmOpen}
-        title={confirmationDetails.title}
-        message={confirmationDetails.message}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-        confirmText={confirmationDetails.confirmText}
-        cancelText="Cancelar"
-      />
-       <ImportEmployeesModal 
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onImport={onImport}
-      />
-       <RegisterEmployeeModal 
-        isOpen={isRegisterModalOpen}
-        onClose={() => setIsRegisterModalOpen(false)}
-        onSubmit={onRegister}
-        users={users}
-      />
+      <ConfirmationDialog isOpen={isConfirmOpen} title={confirmationDetails.title} message={confirmationDetails.message} onConfirm={handleConfirm} onCancel={handleCancel} confirmText={confirmationDetails.confirmText} />
+       <ImportEmployeesModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={onImport} />
+       <RegisterEmployeeModal isOpen={isRegisterModalOpen} onClose={() => setIsRegisterModalOpen(false)} onSubmit={onRegister} users={users} />
     </>
   );
 };

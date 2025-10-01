@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Event, User } from '../../types';
+import { Event, User, Role } from '../../types';
 import ConfirmationDialog from '../shared/ConfirmationDialog';
 
 interface EventEditModalProps {
@@ -143,13 +144,15 @@ const EventEditModal: React.FC<EventEditModalProps> = ({ isOpen, onClose, event,
 }
 
 interface ManageEventsProps {
+  user: User;
   events: Event[];
   employees: User[];
   onCreate: (event: Omit<Event, 'id'>) => void;
   onUpdate: (eventId: string, eventData: Partial<Omit<Event, 'id'>>) => void;
+  onDelete: (eventId: string) => void;
 }
 
-const ManageEvents: React.FC<ManageEventsProps> = ({ events, employees, onCreate, onUpdate }) => {
+const ManageEvents: React.FC<ManageEventsProps> = ({ user, events, employees, onCreate, onUpdate, onDelete }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dateTime, setDateTime] = useState('');
@@ -227,6 +230,17 @@ const ManageEvents: React.FC<ManageEventsProps> = ({ events, employees, onCreate
       setOpenActionMenu(null);
   };
   
+  const handleDeleteClick = (event: Event) => {
+      setConfirmDetails({
+          title: "Excluir Evento",
+          message: `Tem certeza que deseja excluir o evento "${event.title}" permanentemente? Esta ação é irreversível.`,
+          confirmText: "Sim, Excluir"
+      });
+      setConfirmAction(() => () => onDelete(event.id));
+      setIsConfirmOpen(true);
+      setOpenActionMenu(null);
+  };
+
   const handleReactivateClick = (event: Event) => {
       onUpdate(event.id, { status: 'ACTIVE' });
       setOpenActionMenu(null);
@@ -392,6 +406,12 @@ const ManageEvents: React.FC<ManageEventsProps> = ({ events, employees, onCreate
                                             Reativar
                                         </button>
                                     )}
+                                    { user.role === Role.ADMIN && 
+                                        <button onClick={() => handleDeleteClick(event)} className="w-full text-left flex items-center px-4 py-2 text-sm text-red-700 hover:bg-red-50" role="menuitem">
+                                            <svg className="w-4 h-4 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            Excluir
+                                        </button>
+                                    }
                                 </div>
                             </div>
                         )}

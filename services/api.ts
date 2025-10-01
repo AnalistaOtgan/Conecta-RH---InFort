@@ -108,11 +108,13 @@ export const api = {
     if (USERS.some(u => u.cpf === cpf)) {
         throw new Error('Este CPF já está em uso.');
     }
+    const maxMatricula = Math.max(...USERS.map(u => parseInt(u.matricula, 10)), 0);
     const newUser: User = {
         id: Date.now(),
         name,
         email,
         cpf,
+        matricula: String(maxMatricula + 1).padStart(8, '0'),
         role: Role.FUNCIONARIO,
         needsPasswordSetup: true,
         status: 'ATIVO',
@@ -128,31 +130,56 @@ export const api = {
     const newUsers: User[] = [];
     const errors: { row: number; data: any; reason: string }[] = [];
     const existingEmails = new Set(USERS.map(u => u.email.toLowerCase()));
+    const existingMatriculas = new Set(USERS.map(u => u.matricula));
+    let maxMatricula = Math.max(...USERS.map(u => parseInt(u.matricula, 10)), 0);
+
+    const matriculasInThisBatch = new Set<string>();
 
     importedData.forEach((row, index) => {
       const name = row['Nome Completo'];
       const email = row['Email'];
+      const matricula = row['Matrícula'] ? String(row['Matrícula']) : null;
       const emergencyPhone = row['Telefone de Emergencia'];
+      const rowIndex = index + 2;
 
       if (!name || !email) {
-        errors.push({ row: index + 2, data: row, reason: 'Nome Completo e Email são obrigatórios.' });
+        errors.push({ row: rowIndex, data: row, reason: 'Nome Completo e Email são obrigatórios.' });
         return;
       }
        if (typeof email !== 'string' || !/^\S+@\S+\.\S+$/.test(email)) {
-        errors.push({ row: index + 2, data: row, reason: 'Formato de email inválido.' });
+        errors.push({ row: rowIndex, data: row, reason: 'Formato de email inválido.' });
         return;
       }
       const lowercasedEmail = email.toLowerCase();
       if (existingEmails.has(lowercasedEmail) || newUsers.some(u => u.email.toLowerCase() === lowercasedEmail)) {
-        errors.push({ row: index + 2, data: row, reason: 'Email já cadastrado no sistema.' });
+        errors.push({ row: rowIndex, data: row, reason: 'Email já cadastrado no sistema.' });
         return;
       }
       
+      let finalMatricula = '';
+      if (matricula) {
+        if (!/^\d{8}$/.test(matricula)) {
+          errors.push({ row: rowIndex, data: row, reason: 'Matrícula deve conter 8 dígitos numéricos.' });
+          return;
+        }
+        if (existingMatriculas.has(matricula) || matriculasInThisBatch.has(matricula)) {
+           errors.push({ row: rowIndex, data: row, reason: 'Matrícula já cadastrada no sistema.' });
+           return;
+        }
+        finalMatricula = matricula;
+      } else {
+        maxMatricula++;
+        finalMatricula = String(maxMatricula).padStart(8, '0');
+      }
+      
+      matriculasInThisBatch.add(finalMatricula);
+
       const newUser: User = {
         id: Date.now() + index,
         name: String(name),
         email: email,
         cpf: String(Date.now() + index).slice(-11), // Mock CPF
+        matricula: finalMatricula,
         role: Role.FUNCIONARIO,
         needsPasswordSetup: true,
         status: 'ATIVO',
@@ -195,9 +222,30 @@ export const api = {
       const userIndex = USERS.findIndex(u => u.id === userId);
       if (userIndex === -1) throw new Error("Usuário não encontrado.");
       const user = USERS[userIndex];
+      const targetUser = USERS[userIndex];
+
+      if (adminUser.role === Role.RH) {
+        if (role === Role.ADMIN || targetUser.role === Role.ADMIN) {
+          throw new Error("RH não pode alterar ou atribuir o cargo de Administrador.");
+        }
+      }
+
       user.role = role;
-      addLog(adminUser, LogActionType.PROMOCAO_CARGO, `Promoveu o usuário '${user.name}' para o cargo de ${role}.`);
+      addLog(adminUser, LogActionType.PROMOCAO_CARGO, `Alterou o cargo de '${user.name}' para ${role}.`);
       return Promise.resolve(user);
+  },
+
+  async deleteUser(userId: number, adminUser: User): Promise<void> {
+      await delay(500);
+      const userIndex = USERS.findIndex(u => u.id === userId);
+      if (userIndex > -1) {
+          if (USERS[userIndex].id === adminUser.id) {
+              throw new Error("Não é possível excluir a própria conta.");
+          }
+          const [deletedUser] = USERS.splice(userIndex, 1);
+          addLog(adminUser, LogActionType.EXCLUSAO_PERMANENTE, `Excluiu o usuário: "${deletedUser.name}".`);
+      }
+      return Promise.resolve();
   },
 
   async addTimeOffRequest(requestData: Omit<TimeOffRequest, 'id' | 'status' | 'userName' | 'userId'>, currentUser: User): Promise<TimeOffRequest> {
@@ -291,10 +339,32 @@ export const api = {
           ...announcementData,
           id: `a${Date.now()}`,
           date: new Date().toISOString().split('T')[0],
+          status: 'ACTIVE',
       };
       ANNOUNCEMENTS.unshift(newAnnouncement);
       addLog(adminUser, LogActionType.PUBLICACAO_INFORMATIVO, `Publicou o informativo: "${newAnnouncement.title}".`);
       return Promise.resolve(newAnnouncement);
+  },
+
+  async updateAnnouncementStatus(announcementId: string, status: 'ACTIVE' | 'ARCHIVED', adminUser: User): Promise<Announcement> {
+      await delay(300);
+      const annIndex = ANNOUNCEMENTS.findIndex(a => a.id === announcementId);
+      if (annIndex === -1) throw new Error("Informativo não encontrado.");
+      const announcement = ANNOUNCEMENTS[annIndex];
+      announcement.status = status;
+      const actionVerb = status === 'ARCHIVED' ? 'Arquivou' : 'Reativou';
+      addLog(adminUser, LogActionType.ARQUIVAMENTO_REGISTRO, `${actionVerb} o informativo: "${announcement.title}".`);
+      return Promise.resolve(announcement);
+  },
+
+  async deleteAnnouncement(announcementId: string, adminUser: User): Promise<void> {
+      await delay(400);
+      const annIndex = ANNOUNCEMENTS.findIndex(a => a.id === announcementId);
+      if (annIndex > -1) {
+          const [deletedAnnouncement] = ANNOUNCEMENTS.splice(annIndex, 1);
+          addLog(adminUser, LogActionType.EXCLUSAO_PERMANENTE, `Excluiu o informativo: "${deletedAnnouncement.title}".`);
+      }
+      return Promise.resolve();
   },
 
   async addEvent(eventData: Omit<Event, 'id'>, adminUser: User): Promise<Event> {
@@ -328,6 +398,16 @@ export const api = {
       
       EVENTS.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
       return Promise.resolve(updatedEvent);
+  },
+
+  async deleteEvent(eventId: string, adminUser: User): Promise<void> {
+      await delay(400);
+      const eventIndex = EVENTS.findIndex(e => e.id === eventId);
+      if (eventIndex > -1) {
+          const [deletedEvent] = EVENTS.splice(eventIndex, 1);
+          addLog(adminUser, LogActionType.EXCLUSAO_PERMANENTE, `Excluiu o evento: "${deletedEvent.title}".`);
+      }
+      return Promise.resolve();
   },
 
   async addAppNotification(userId: number, message: string, link: string): Promise<AppNotification> {
