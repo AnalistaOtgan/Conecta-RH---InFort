@@ -130,8 +130,11 @@ export const api = {
     await delay(1000);
     const newUsers: User[] = [];
     const errors: { row: number; data: any; reason: string }[] = [];
-    const existingEmails = new Set(USERS.map(u => u.email.toLowerCase()));
-    const existingMatriculas = new Set(USERS.map(u => u.matricula));
+    
+    const activeUsers = USERS.filter(u => u.status === 'ATIVO');
+    const existingEmails = new Set(activeUsers.map(u => u.email.toLowerCase()));
+    const existingMatriculas = new Set(activeUsers.map(u => u.matricula));
+
     let maxMatricula = Math.max(...USERS.map(u => parseInt(u.matricula, 10)), 0);
 
     const matriculasInThisBatch = new Set<string>();
@@ -153,7 +156,7 @@ export const api = {
       }
       const lowercasedEmail = email.toLowerCase();
       if (existingEmails.has(lowercasedEmail) || newUsers.some(u => u.email.toLowerCase() === lowercasedEmail)) {
-        errors.push({ row: rowIndex, data: row, reason: 'Email já cadastrado no sistema.' });
+        errors.push({ row: rowIndex, data: row, reason: 'Email já cadastrado para um usuário ativo.' });
         return;
       }
       
@@ -164,7 +167,7 @@ export const api = {
           return;
         }
         if (existingMatriculas.has(matricula) || matriculasInThisBatch.has(matricula)) {
-           errors.push({ row: rowIndex, data: row, reason: 'Matrícula já cadastrada no sistema.' });
+           errors.push({ row: rowIndex, data: row, reason: 'Matrícula já cadastrada para um usuário ativo.' });
            return;
         }
         finalMatricula = matricula;
