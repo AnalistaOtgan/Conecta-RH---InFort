@@ -68,18 +68,20 @@ export const api = {
   // ===================================
   // AUTH operations
   // ===================================
-  async login(email: string, password?: string): Promise<User> {
+  async login(loginIdentifier: string, password?: string): Promise<User> {
       await delay(500);
-      const user = USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
+      const identifier = loginIdentifier.toLowerCase();
+      const user = USERS.find(u => u.email.toLowerCase() === identifier || u.matricula === identifier);
+
       if (!user) {
-          throw new Error('Email ou senha inválidos.');
+          throw new Error('Email/Matrícula ou senha inválidos.');
       }
       if (user.status === 'INATIVO') {
           throw new Error('Sua conta está desativada. Entre em contato com o RH.');
       }
       // If password is provided, check it. Otherwise, assume it's for setup check.
       if (password && !user.needsPasswordSetup && user.password !== password) {
-          throw new Error('Email ou senha inválidos.');
+          throw new Error('Email/Matrícula ou senha inválidos.');
       }
       return Promise.resolve(user);
   },
@@ -100,28 +102,27 @@ export const api = {
   // WRITE operations
   // ===================================
 
-  async registerEmployee(name: string, email: string, cpf: string, adminUser: User, emergencyPhone?: string): Promise<User> {
+  async registerEmployee(name: string, email: string, matricula: string, adminUser: User, emergencyPhone?: string): Promise<User> {
     await delay(500);
     if (USERS.some(u => u.email.toLowerCase() === email.toLowerCase())) {
       throw new Error('Este email já está em uso.');
     }
-    if (USERS.some(u => u.cpf === cpf)) {
-        throw new Error('Este CPF já está em uso.');
+    if (USERS.some(u => u.matricula === matricula)) {
+        throw new Error('Esta matrícula já está em uso.');
     }
-    const maxMatricula = Math.max(...USERS.map(u => parseInt(u.matricula, 10)), 0);
     const newUser: User = {
         id: Date.now(),
         name,
         email,
-        cpf,
-        matricula: String(maxMatricula + 1).padStart(8, '0'),
+        cpf: String(Date.now()).slice(-11), // Mock CPF as per import logic
+        matricula,
         role: Role.FUNCIONARIO,
         needsPasswordSetup: true,
         status: 'ATIVO',
         emergencyPhone: emergencyPhone || undefined,
     };
     USERS.push(newUser); // Mutating mock data
-    addLog(adminUser, LogActionType.CADASTRO_USUARIO, `Cadastrou o novo usuário '${name}' (CPF: ${cpf}, Email: ${email}).`);
+    addLog(adminUser, LogActionType.CADASTRO_USUARIO, `Cadastrou o novo usuário '${name}' (Matrícula: ${matricula}, Email: ${email}).`);
     return Promise.resolve(newUser);
   },
 
@@ -233,6 +234,33 @@ export const api = {
       user.role = role;
       addLog(adminUser, LogActionType.PROMOCAO_CARGO, `Alterou o cargo de '${user.name}' para ${role}.`);
       return Promise.resolve(user);
+  },
+
+  async updateEmployee(userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula'>>, adminUser: User): Promise<User> {
+      await delay(300);
+      const userIndex = USERS.findIndex(u => u.id === userId);
+      if (userIndex === -1) throw new Error("Usuário não encontrado.");
+      
+      if (data.email) {
+          const newEmail = data.email.toLowerCase();
+          if (USERS.some(u => u.id !== userId && u.email.toLowerCase() === newEmail)) {
+            throw new Error('Este email já está em uso por outro usuário.');
+          }
+      }
+      
+      if (data.matricula) {
+        if (USERS.some(u => u.id !== userId && u.matricula === data.matricula)) {
+          throw new Error('Esta matrícula já está em uso por outro usuário.');
+        }
+      }
+
+      const user = USERS[userIndex];
+      const updatedUser = { ...user, ...data };
+      USERS[userIndex] = updatedUser;
+      
+      addLog(adminUser, LogActionType.ATUALIZACAO_DADOS_USUARIO, `Atualizou os dados de '${user.name}'.`);
+
+      return Promise.resolve(updatedUser);
   },
 
   async deleteUser(userId: number, adminUser: User): Promise<void> {

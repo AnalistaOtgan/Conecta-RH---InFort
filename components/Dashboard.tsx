@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { User, Role, Payslip, TimeOffRequest, MeetingRequest, Announcement, RequestStatus, Event, AppNotification, ImportResult, LogEntry } from '../types';
@@ -82,7 +81,7 @@ interface DashboardProps {
     addPayslip: (payslip: Omit<Payslip, 'id' | 'fileUrl'>) => void;
     addBatchPayslips: (payslips: Omit<Payslip, 'id' | 'fileUrl'>[]) => Promise<{ successCount: number }>;
     addAnnouncement: (announcement: Omit<Announcement, 'id' | 'date'>) => void;
-    registerEmployee: (name: string, email: string, cpf: string, emergencyPhone?: string) => void;
+    registerEmployee: (name: string, email: string, matricula: string, emergencyPhone?: string) => void;
     addEvent: (event: Omit<Event, 'id'>) => void;
     updateEvent: (eventId: string, eventData: Partial<Omit<Event, 'id'>>) => void;
     markNotificationsAsRead: (userId: number) => void;
@@ -90,6 +89,7 @@ interface DashboardProps {
     resetUserPassword: (userId: number) => void;
     importEmployees: (data: any[]) => Promise<ImportResult>;
     updateUserRole: (userId: number, role: Role) => void;
+    updateEmployee: (userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula'>>) => void;
     deleteUser: (userId: number) => void;
     deleteEvent: (eventId: string) => void;
     updateAnnouncementStatus: (announcementId: string, status: 'ACTIVE' | 'ARCHIVED') => void;
@@ -136,7 +136,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, data, actions }) 
           <Route path="/manage-meetings" element={<ManageMeetings requests={data.meetingRequests} onUpdateStatus={actions.updateMeetingStatus} employees={allEmployees} />} />
           <Route path="/upload-payslip" element={<UploadPayslip employees={employeesForPayslip} users={data.users} payslips={data.payslips} onAddSingle={actions.addPayslip} onAddBatch={actions.addBatchPayslips} />} />
           <Route path="/post-announcement" element={<PostAnnouncement onSubmit={actions.addAnnouncement} />} />
-          <Route path="/manage-employees" element={<ManageEmployees user={user} users={data.users} onUpdateStatus={actions.updateUserStatus} onResetPassword={actions.resetUserPassword} onImport={actions.importEmployees} onRegister={actions.registerEmployee} onUpdateRole={actions.updateUserRole} onDelete={actions.deleteUser} />} />
+          <Route path="/manage-employees" element={<ManageEmployees user={user} users={data.users} onUpdateStatus={actions.updateUserStatus} onResetPassword={actions.resetUserPassword} onImport={actions.importEmployees} onRegister={actions.registerEmployee} onUpdateRole={actions.updateUserRole} onUpdateEmployee={actions.updateEmployee} onDelete={actions.deleteUser} />} />
           <Route path="/manage-events" element={<ManageEvents user={user} events={data.events} employees={allEmployees} onCreate={actions.addEvent} onUpdate={actions.updateEvent} onDelete={actions.deleteEvent} />} />
           {user.role === Role.ADMIN && (
              <Route path="/activity-log" element={<ActivityLog logs={data.logs} adminUsers={hrAndAdminUsers} />} />

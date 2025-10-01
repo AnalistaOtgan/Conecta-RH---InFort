@@ -10,6 +10,7 @@ const actionColors: { [key in LogActionType]: string } = {
     [LogActionType.CADASTRO_USUARIO]: 'bg-blue-100 text-blue-800',
     [LogActionType.IMPORTACAO_USUARIOS]: 'bg-blue-100 text-blue-800',
     [LogActionType.ATUALIZACAO_STATUS_USUARIO]: 'bg-yellow-100 text-yellow-800',
+    [LogActionType.ATUALIZACAO_DADOS_USUARIO]: 'bg-yellow-100 text-yellow-800',
     [LogActionType.RESET_SENHA]: 'bg-yellow-100 text-yellow-800',
     [LogActionType.PROMOCAO_CARGO]: 'bg-purple-100 text-purple-800',
     [LogActionType.APROVACAO_FOLGA]: 'bg-green-100 text-green-800',
@@ -20,7 +21,6 @@ const actionColors: { [key in LogActionType]: string } = {
     [LogActionType.PUBLICACAO_INFORMATIVO]: 'bg-cyan-100 text-cyan-800',
     [LogActionType.CRIACAO_EVENTO]: 'bg-blue-100 text-blue-800',
     [LogActionType.ATUALIZACAO_EVENTO]: 'bg-yellow-100 text-yellow-800',
-    // FIX: Add missing log action types to the color map.
     [LogActionType.ARQUIVAMENTO_REGISTRO]: 'bg-slate-100 text-slate-800',
     [LogActionType.EXCLUSAO_PERMANENTE]: 'bg-red-100 text-red-800',
 };

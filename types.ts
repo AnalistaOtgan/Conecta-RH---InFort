@@ -1,4 +1,5 @@
 
+
 export enum Role {
   FUNCIONARIO = 'Funcionário',
   RH = 'RH',
@@ -104,6 +105,7 @@ export enum LogActionType {
   CADASTRO_USUARIO = 'Cadastro de Usuário',
   IMPORTACAO_USUARIOS = 'Importação de Usuários',
   ATUALIZACAO_STATUS_USUARIO = 'Atualização de Status',
+  ATUALIZACAO_DADOS_USUARIO = 'Atualização de Dados Cadastrais',
   RESET_SENHA = 'Reset de Senha',
   PROMOCAO_CARGO = 'Promoção de Cargo',
   APROVACAO_FOLGA = 'Aprovação de Folga',

@@ -251,31 +251,26 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
 interface RegisterEmployeeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (name: string, email: string, cpf: string, emergencyPhone?: string) => void;
+  onSubmit: (name: string, email: string, matricula: string, emergencyPhone?: string) => void;
   users: User[];
 }
 
 const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, onClose, onSubmit, users }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [cpf, setCpf] = useState('');
+  const [matricula, setMatricula] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
   const [error, setError] = useState('');
 
-  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMatriculaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-    const maskedValue = value
-        .replace(/(\d{3})(\d)/, '$1.$2')
-        .replace(/(\d{3})(\d)/, '$1.$2')
-        .replace(/(\d{3})(\d{1,2})/, '$1-$2')
-        .slice(0, 14); // 11 digits + 3 separators
-    setCpf(maskedValue);
+    setMatricula(value.slice(0, 8));
   };
 
   const resetStateAndClose = () => {
     setName('');
     setEmail('');
-    setCpf('');
+    setMatricula('');
     setEmergencyPhone('');
     setError('');
     onClose();
@@ -283,22 +278,20 @@ const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanCpf = cpf.replace(/\D/g, '');
-
-    if (cleanCpf.length !== 11) {
-        setError('O CPF deve conter 11 dígitos.');
+    if (matricula.length !== 8) {
+        setError('A matrícula deve conter 8 dígitos.');
         return;
     }
     if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
         setError('Este email já está em uso.');
         return;
     }
-    if (users.some(u => u.cpf === cleanCpf)) {
-        setError('Este CPF já está em uso.');
+    if (users.some(u => u.matricula === matricula)) {
+        setError('Esta matrícula já está em uso.');
         return;
     }
     setError('');
-    onSubmit(name, email, cleanCpf, emergencyPhone);
+    onSubmit(name, email, matricula, emergencyPhone);
     resetStateAndClose();
   };
   
@@ -329,13 +322,14 @@ const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, o
                   />
                 </div>
                 <div>
-                  <label htmlFor="cpf" className="block text-sm font-medium text-slate-700">CPF</label>
+                  <label htmlFor="matricula" className="block text-sm font-medium text-slate-700">Matrícula</label>
                   <input
                     type="text"
-                    id="cpf"
-                    value={cpf}
-                    onChange={handleCpfChange}
-                    placeholder="000.000.000-00"
+                    id="matricula"
+                    value={matricula}
+                    onChange={handleMatriculaChange}
+                    placeholder="00000000"
+                    maxLength={8}
                     className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
                     required
                   />
@@ -376,6 +370,140 @@ const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, o
   );
 };
 // ==========================================================
+// Inlined EditEmployeeModal component
+// ==========================================================
+interface EditEmployeeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula'>>) => void;
+  user: User | null;
+  allUsers: User[];
+}
+
+const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, onSubmit, user, allUsers }) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [matricula, setMatricula] = useState('');
+  const [emergencyPhone, setEmergencyPhone] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name);
+      setEmail(user.email);
+      setMatricula(user.matricula);
+      setEmergencyPhone(user.emergencyPhone || '');
+      setError('');
+    }
+  }, [user]);
+
+  if (!isOpen || !user) return null;
+  
+  const handleMatriculaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+    setMatricula(value.slice(0, 8));
+  };
+
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (email.toLowerCase() !== user.email.toLowerCase()) {
+      if (allUsers.some(u => u.id !== user.id && u.email.toLowerCase() === email.toLowerCase())) {
+        setError('Este email já está em uso por outro usuário.');
+        return;
+      }
+    }
+
+    if (matricula !== user.matricula) {
+      if (matricula.length !== 8) {
+        setError('A matrícula deve conter 8 dígitos.');
+        return;
+      }
+      if (allUsers.some(u => u.id !== user.id && u.matricula === matricula)) {
+        setError('Esta matrícula já está em uso por outro usuário.');
+        return;
+      }
+    }
+    
+    const updatedData: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula'>> = {};
+    if (name !== user.name) updatedData.name = name;
+    if (email !== user.email) updatedData.email = email;
+    if (matricula !== user.matricula) updatedData.matricula = matricula;
+    if (emergencyPhone !== (user.emergencyPhone || '')) updatedData.emergencyPhone = emergencyPhone;
+
+    if (Object.keys(updatedData).length > 0) {
+        onSubmit(user.id, updatedData);
+    }
+    onClose();
+  };
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4 transition-opacity" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl transform transition-all" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 border-b flex justify-between items-center">
+            <h3 className="text-xl font-bold text-gray-900">Editar Dados do Funcionário</h3>
+            <button onClick={onClose} className="p-1 rounded-full text-slate-400 hover:bg-slate-100">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <form onSubmit={handleSubmit}>
+            <div className="p-6 space-y-6">
+                <div>
+                  <label htmlFor="edit-name" className="block text-sm font-medium text-slate-700">Nome Completo</label>
+                  <input
+                    type="text" id="edit-name" value={name} onChange={(e) => setName(e.target.value)}
+                    className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
+                    required
+                  />
+                </div>
+                 <div>
+                  <label htmlFor="edit-matricula" className="block text-sm font-medium text-slate-700">Matrícula</label>
+                  <input
+                    type="text"
+                    id="edit-matricula"
+                    value={matricula}
+                    onChange={handleMatriculaChange}
+                    placeholder="00000000"
+                    maxLength={8}
+                    className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-email" className="block text-sm font-medium text-slate-700">Email</label>
+                  <input
+                    type="email" id="edit-email" value={email} onChange={(e) => setEmail(e.target.value)}
+                    className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-emergencyPhone" className="block text-sm font-medium text-slate-700">Telefone de Contato (Opcional)</label>
+                  <input
+                    type="tel" id="edit-emergencyPhone" value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)}
+                    placeholder="(XX) XXXXX-XXXX"
+                    className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
+                  />
+                </div>
+                {error && <p className="text-sm text-red-600">{error}</p>}
+            </div>
+            <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3 rounded-b-lg">
+                <button type="button" onClick={onClose} className="px-4 py-2 bg-white text-sm font-medium text-slate-700 border border-slate-300 rounded-md hover:bg-slate-50">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-slate-800 text-sm font-medium text-white border border-transparent rounded-md hover:bg-slate-900">
+                  Salvar Alterações
+                </button>
+            </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+// ==========================================================
+
 
 interface ManageEmployeesProps {
   user: User;
@@ -383,8 +511,9 @@ interface ManageEmployeesProps {
   onUpdateStatus: (userId: number, status: 'ATIVO' | 'INATIVO') => void;
   onResetPassword: (userId: number) => void;
   onImport: (data: any[]) => Promise<ImportResult>;
-  onRegister: (name: string, email: string, cpf: string, emergencyPhone?: string) => void;
+  onRegister: (name: string, email: string, matricula: string, emergencyPhone?: string) => void;
   onUpdateRole: (userId: number, role: Role) => void;
+  onUpdateEmployee: (userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula'>>) => void;
   onDelete: (userId: number) => void;
 }
 
@@ -392,11 +521,13 @@ const getStatusColor = (status: 'ATIVO' | 'INATIVO') => {
     return status === 'ATIVO' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800';
 };
 
-const ManageEmployees: React.FC<ManageEmployeesProps> = ({ user: currentUser, users, onUpdateStatus, onResetPassword, onImport, onRegister, onUpdateRole, onDelete }) => {
+const ManageEmployees: React.FC<ManageEmployeesProps> = ({ user: currentUser, users, onUpdateStatus, onResetPassword, onImport, onRegister, onUpdateRole, onUpdateEmployee, onDelete }) => {
   const [filter, setFilter] = useState('');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [confirmationAction, setConfirmationAction] = useState<(() => void) | null>(null);
   const [confirmationDetails, setConfirmationDetails] = useState({ title: '', message: '', confirmText: '' });
   const [openActionMenu, setOpenActionMenu] = useState<number | null>(null);
@@ -429,6 +560,12 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ user: currentUser, us
   const handleCancel = () => {
     setIsConfirmOpen(false);
     setConfirmationAction(null);
+  };
+
+  const handleEditClick = (userToEdit: User) => {
+    setEditingUser(userToEdit);
+    setIsEditModalOpen(true);
+    setOpenActionMenu(null);
   };
 
   const filteredUsers = useMemo(() => {
@@ -502,6 +639,8 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ user: currentUser, us
                     {openActionMenu === user.id && (
                         <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
                             <div className="py-1" role="menu">
+                                <button onClick={() => handleEditClick(user)} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Editar Dados</button>
+                                <div className="border-t my-1"></div>
                                 <div className="px-4 py-2 text-xs text-gray-500 uppercase">Alterar Cargo</div>
                                 { (currentUser.role === Role.ADMIN) && (user.role !== Role.ADMIN) && <button onClick={() => handleAction(() => onUpdateRole(user.id, Role.ADMIN), {title: 'Promover a Admin', message:`Promover ${user.name} para Administrador?`, confirmText:'Sim, Promover'})} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Administrador</button>}
                                 { (user.role !== Role.RH) && <button onClick={() => handleAction(() => onUpdateRole(user.id, Role.RH), {title: `Promover ${user.role === Role.ADMIN ? 'ou Rebaixar ' : ''}a RH`, message:`Alterar o cargo de ${user.name} para RH?`, confirmText:'Sim, Alterar'})} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">RH</button>}
@@ -547,8 +686,9 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ user: currentUser, us
         </div>)}
       </div>
       <ConfirmationDialog isOpen={isConfirmOpen} title={confirmationDetails.title} message={confirmationDetails.message} onConfirm={handleConfirm} onCancel={handleCancel} confirmText={confirmationDetails.confirmText} />
-       <ImportEmployeesModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={onImport} />
-       <RegisterEmployeeModal isOpen={isRegisterModalOpen} onClose={() => setIsRegisterModalOpen(false)} onSubmit={onRegister} users={users} />
+      <ImportEmployeesModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={onImport} />
+      <RegisterEmployeeModal isOpen={isRegisterModalOpen} onClose={() => setIsRegisterModalOpen(false)} onSubmit={onRegister} users={users} />
+      <EditEmployeeModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSubmit={onUpdateEmployee} user={editingUser} allUsers={users} />
     </>
   );
 };

@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 
 interface LoginProps {
-  onLoginAttempt: (email: string, password: string) => void;
+  onLoginAttempt: (loginIdentifier: string, password: string) => void;
   error: string;
   clearError: () => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLoginAttempt, error, clearError }) => {
-  const [email, setEmail] = useState('');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmail(e.target.value);
+  const handleIdentifierChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLoginIdentifier(e.target.value);
     if(error) clearError();
   }
   
@@ -22,7 +22,7 @@ const Login: React.FC<LoginProps> = ({ onLoginAttempt, error, clearError }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onLoginAttempt(email, password);
+    onLoginAttempt(loginIdentifier, password);
   };
 
   return (
@@ -40,17 +40,17 @@ const Login: React.FC<LoginProps> = ({ onLoginAttempt, error, clearError }) => {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="email-address" className="sr-only">Email</label>
+              <label htmlFor="login-identifier" className="sr-only">Email ou Matrícula</label>
               <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id="login-identifier"
+                name="login"
+                type="text"
+                autoComplete="username"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-3 bg-white border border-slate-300 placeholder-slate-400 text-slate-800 rounded-t-md focus:outline-none focus:ring-slate-500 focus:border-slate-500 focus:z-10 sm:text-sm"
-                placeholder="Email"
-                value={email}
-                onChange={handleEmailChange}
+                placeholder="Email ou Matrícula"
+                value={loginIdentifier}
+                onChange={handleIdentifierChange}
               />
             </div>
             <div>

@@ -1,5 +1,3 @@
-
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { api } from './services/api';
 import { User, Role, Payslip, TimeOffRequest, MeetingRequest, Announcement, Notification as NotificationType, RequestStatus, Event, AppNotification, ImportResult, LogEntry } from './types';
@@ -234,10 +232,10 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleLoginAttempt = async (email: string, password: string) => {
+  const handleLoginAttempt = async (loginIdentifier: string, password: string) => {
     setLoginError('');
     try {
-        const user = await api.login(email, password);
+        const user = await api.login(loginIdentifier, password);
         if (user.needsPasswordSetup) {
             setUserForSetup(user);
             setAuthFlow('setupPassword');
@@ -266,10 +264,10 @@ const App: React.FC = () => {
     setCurrentUser(null);
   };
   
-  const registerEmployee = useCallback(async (name: string, email: string, cpf: string, emergencyPhone?: string) => {
+  const registerEmployee = useCallback(async (name: string, email: string, matricula: string, emergencyPhone?: string) => {
     if (!currentUser) return;
     try {
-        const newUser = await api.registerEmployee(name, email, cpf, currentUser, emergencyPhone);
+        const newUser = await api.registerEmployee(name, email, matricula, currentUser, emergencyPhone);
         setUsers(prev => [...prev, newUser]);
         showNotification(`Funcionário ${name} cadastrado com sucesso.`, 'success');
         refreshLogs();
@@ -340,6 +338,21 @@ const App: React.FC = () => {
         refreshLogs();
     } catch (error: any) {
         showNotification(error.message || 'Erro ao atualizar o cargo do funcionário.', 'error');
+    }
+  }, [currentUser, refreshLogs]);
+
+  const updateEmployee = useCallback(async (userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula'>>) => {
+    if (!currentUser) return;
+    try {
+        const updatedUser = await api.updateEmployee(userId, data, currentUser);
+        setUsers(prev => prev.map(u => (u.id === userId ? updatedUser : u)));
+        if (currentUser.id === userId) {
+            setCurrentUser(updatedUser);
+        }
+        showNotification(`Dados de ${updatedUser.name} atualizados com sucesso.`, 'success');
+        refreshLogs();
+    } catch (error: any) {
+        showNotification(error.message || 'Erro ao atualizar dados do funcionário.', 'error');
     }
   }, [currentUser, refreshLogs]);
 
@@ -457,17 +470,18 @@ const App: React.FC = () => {
   }, [currentUser, refreshLogs]);
 
   const updateAnnouncementStatus = useCallback(async (announcementId: string, status: 'ACTIVE' | 'ARCHIVED') => {
-    if (!currentUser || currentUser.role === Role.FUNCIONARIO) return;
+    if (!currentUser) return;
     try {
         const updatedAnnouncement = await api.updateAnnouncementStatus(announcementId, status, currentUser);
         setAnnouncements(prev => prev.map(a => a.id === announcementId ? updatedAnnouncement : a));
-        showNotification(`Informativo ${status === 'ARCHIVED' ? 'arquivado' : 'reativado'} com sucesso.`, 'info');
-        if(status === 'ARCHIVED') refreshLogs();
+        const actionVerb = status === 'ARCHIVED' ? 'arquivado' : 'reativado';
+        showNotification(`Informativo "${updatedAnnouncement.title}" ${actionVerb}.`, 'info');
+        refreshLogs();
     } catch (error) {
-        showNotification('Erro ao atualizar informativo.', 'error');
+        showNotification('Erro ao atualizar status do informativo.', 'error');
     }
   }, [currentUser, refreshLogs]);
-  
+
   const deleteAnnouncement = useCallback(async (announcementId: string) => {
     if (!currentUser || currentUser.role !== Role.ADMIN) return;
     try {
@@ -485,23 +499,23 @@ const App: React.FC = () => {
     try {
         const newEvent = await api.addEvent(event, currentUser);
         setEvents(prev => [newEvent, ...prev].sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()));
-        showNotification('Evento criado e participantes notificados com sucesso!', 'success');
+        showNotification('Evento criado com sucesso!', 'success');
+        
+        event.participantIds.forEach(userId => {
+            addAppNotification(userId, `Você foi convidado para o evento: "${event.title}".`, 'my-events');
+        });
         refreshLogs();
     } catch (error) {
         showNotification('Erro ao criar evento.', 'error');
     }
-  }, [currentUser, refreshLogs]);
-  
+  }, [currentUser, addAppNotification, refreshLogs]);
+
   const updateEvent = useCallback(async (eventId: string, eventData: Partial<Omit<Event, 'id'>>) => {
     if (!currentUser) return;
     try {
         const updatedEvent = await api.updateEvent(eventId, eventData, currentUser);
-        setEvents(prev => {
-            const newEvents = prev.map(e => (e.id === eventId ? updatedEvent : e));
-            return newEvents.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
-        });
-        const message = eventData.status ? `Evento ${eventData.status === 'ARCHIVED' ? 'arquivado' : 'reativado'} com sucesso!` : 'Evento atualizado com sucesso!';
-        showNotification(message, eventData.status ? 'info' : 'success');
+        setEvents(prev => prev.map(e => e.id === eventId ? updatedEvent : e));
+        showNotification('Evento atualizado com sucesso!', 'success');
         refreshLogs();
     } catch (error) {
         showNotification('Erro ao atualizar evento.', 'error');
@@ -522,37 +536,57 @@ const App: React.FC = () => {
 
   if (isLoading) {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-100">
-            <div className="text-center">
-                <svg className="animate-spin h-10 w-10 text-slate-800 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p className="mt-4 text-slate-600">Carregando...</p>
-            </div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <div className="text-center">
+            <svg className="animate-spin h-10 w-10 text-slate-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p className="mt-4 text-slate-500">Carregando dados...</p>
         </div>
+      </div>
     );
   }
 
-  if (currentUser) {
-    return (
-      <>
-        {notification && <Notification notification={notification} onClose={() => setNotification(null)} />}
-        <Dashboard
-          user={currentUser}
-          onLogout={handleLogout}
-          data={{ users, payslips, timeOffRequests, meetingRequests, announcements, events, appNotifications, logs }}
-          actions={{ addTimeOffRequest, updateTimeOffStatus, addMeetingRequest, updateMeetingStatus, addPayslip, addBatchPayslips, addAnnouncement, registerEmployee, addEvent, updateEvent, markNotificationsAsRead, updateUserStatus, resetUserPassword, importEmployees, updateUserRole, deleteUser, deleteEvent, updateAnnouncementStatus, deleteAnnouncement }}
-        />
-      </>
-    );
-  }
-  
-  if (authFlow === 'setupPassword' && userForSetup) {
-      return <PasswordSetup user={userForSetup} onSetup={handlePasswordSetup} />;
+  if (!currentUser) {
+    if (authFlow === 'setupPassword' && userForSetup) {
+        return <PasswordSetup user={userForSetup} onSetup={handlePasswordSetup} />;
+    }
+    return <Login onLoginAttempt={handleLoginAttempt} error={loginError} clearError={() => setLoginError('')} />;
   }
 
-  return <Login onLoginAttempt={handleLoginAttempt} error={loginError} clearError={() => setLoginError('')} />;
+  return (
+    <>
+      <Dashboard
+        user={currentUser}
+        onLogout={handleLogout}
+        data={{ users, payslips, timeOffRequests, meetingRequests, announcements, events, appNotifications, logs }}
+        actions={{
+          addTimeOffRequest,
+          updateTimeOffStatus,
+          addMeetingRequest,
+          updateMeetingStatus,
+          addPayslip,
+          addBatchPayslips,
+          addAnnouncement,
+          registerEmployee,
+          importEmployees,
+          updateUserStatus,
+          resetUserPassword,
+          updateUserRole,
+          updateEmployee,
+          deleteUser,
+          addEvent,
+          updateEvent,
+          deleteEvent,
+          updateAnnouncementStatus,
+          deleteAnnouncement,
+          markNotificationsAsRead: () => markNotificationsAsRead(currentUser.id),
+        }}
+      />
+      {notification && <Notification notification={notification} onClose={() => setNotification(null)} />}
+    </>
+  );
 };
 
 export default App;
