@@ -1,6 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { User, Payslip } from '../../types';
+import ConfirmationDialog from '../shared/ConfirmationDialog';
+
 
 // Declare XLSX, since it's loaded from a script tag and TS doesn't know about it.
 declare var XLSX: any;
@@ -33,14 +35,26 @@ const UploadPayslip: React.FC<UploadPayslipProps> = ({ employees, users, payslip
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [file, setFile] = useState<File | null>(null);
   const [individualError, setIndividualError] = useState('');
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [payslipToSubmit, setPayslipToSubmit] = useState<Omit<Payslip, 'id' | 'fileUrl'> | null>(null);
 
   // State for Batch Upload
   const [parsedFiles, setParsedFiles] = useState<ParsedFileData[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [importResult, setImportResult] = useState<{ successCount: number } | null>(null);
+  const [filesToReplace, setFilesToReplace] = useState<Set<number>>(new Set());
 
   // --- LOGIC FOR INDIVIDUAL UPLOAD ---
+  const resetIndividualForm = () => {
+    setUserId('');
+    setMonth(new Date().getMonth() + 1);
+    setYear(new Date().getFullYear());
+    setFile(null);
+    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+  };
+
   const handleIndividualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId || !month || !year || !file) {
@@ -48,13 +62,26 @@ const UploadPayslip: React.FC<UploadPayslipProps> = ({ employees, users, payslip
       return;
     }
     setIndividualError('');
-    onAddSingle({ userId: Number(userId), month: Number(month), year });
-    setUserId('');
-    setMonth(new Date().getMonth() + 1);
-    setYear(new Date().getFullYear());
-    setFile(null);
-    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-    if(fileInput) fileInput.value = '';
+
+    const payslipData = { userId: Number(userId), month: Number(month), year };
+    const existingPayslip = payslips.find(p => p.userId === payslipData.userId && p.month === payslipData.month && p.year === payslipData.year);
+
+    if (existingPayslip) {
+      setPayslipToSubmit(payslipData);
+      setIsConfirmOpen(true);
+    } else {
+      onAddSingle(payslipData);
+      resetIndividualForm();
+    }
+  };
+
+  const handleConfirmSubmit = () => {
+    if (payslipToSubmit) {
+      onAddSingle(payslipToSubmit);
+      resetIndividualForm();
+    }
+    setIsConfirmOpen(false);
+    setPayslipToSubmit(null);
   };
 
   // --- LOGIC FOR BATCH UPLOAD ---
@@ -63,7 +90,7 @@ const UploadPayslip: React.FC<UploadPayslipProps> = ({ employees, users, payslip
 
   const parseAndValidateFiles = (files: FileList) => {
     const newParsedFiles: ParsedFileData[] = [];
-    const filenameRegex = /^(\d{8})-(\d{2})-(\d{4})\.pdf$/i;
+    const filenameRegex = /^(\d{6})-(\d{2})-(\d{4})\.pdf$/i;
 
     for (const file of Array.from(files)) {
       const match = file.name.match(filenameRegex);
@@ -95,6 +122,7 @@ const UploadPayslip: React.FC<UploadPayslipProps> = ({ employees, users, payslip
       newParsedFiles.push({ file, status: 'ready', user, month, year });
     }
     setParsedFiles(newParsedFiles);
+    setFilesToReplace(new Set());
     setImportResult(null);
   };
 
@@ -112,27 +140,43 @@ const UploadPayslip: React.FC<UploadPayslipProps> = ({ employees, users, payslip
     }
   };
 
+  const toggleReplacement = (index: number) => {
+    setFilesToReplace(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(index)) {
+            newSet.delete(index);
+        } else {
+            newSet.add(index);
+        }
+        return newSet;
+    });
+  };
+
   const handleImportClick = async () => {
-    const validPayslipsToImport = parsedFiles
-      .filter(pf => pf.status === 'ready')
+    const payslipsToImport = parsedFiles
+      .map((pf, index) => ({ ...pf, originalIndex: index }))
+      .filter(pf => pf.status === 'ready' || (pf.status === 'duplicate' && filesToReplace.has(pf.originalIndex)))
       .map(pf => ({
         userId: pf.user!.id,
         month: pf.month!,
         year: pf.year!,
       }));
       
-    if (validPayslipsToImport.length === 0) return;
+    if (payslipsToImport.length === 0) return;
 
     setIsProcessing(true);
-    const result = await onAddBatch(validPayslipsToImport);
+    const result = await onAddBatch(payslipsToImport);
     setImportResult(result);
     setIsProcessing(false);
     setParsedFiles([]);
+    setFilesToReplace(new Set());
   };
   
   const filesReady = parsedFiles.filter(f => f.status === 'ready').length;
   const filesError = parsedFiles.filter(f => f.status === 'error').length;
   const filesDuplicate = parsedFiles.filter(f => f.status === 'duplicate').length;
+  const filesToReplaceCount = filesToReplace.size;
+  const filesToImportCount = filesReady + filesToReplaceCount;
   
   const tabClasses = (tabName: 'individual' | 'batch') =>
     `px-3 py-4 font-medium text-sm rounded-t-lg transition-colors duration-200 ${
@@ -247,8 +291,8 @@ const UploadPayslip: React.FC<UploadPayslipProps> = ({ employees, users, payslip
                     <ul className="list-disc list-inside text-sm text-slate-600 mt-2 space-y-1">
                         <li>Arraste e solte os arquivos PDF ou clique para selecionar.</li>
                         <li>O nome de cada arquivo deve seguir o padrão: <code className="bg-slate-200 px-1 rounded">[MATRICULA]-[MM]-[AAAA].pdf</code>.</li>
-                        <li>Exemplo: <code className="bg-slate-200 px-1 rounded">00001001-05-2024.pdf</code>.</li>
-                        <li>A matrícula deve conter 8 dígitos.</li>
+                        <li>Exemplo: <code className="bg-slate-200 px-1 rounded">001001-05-2024.pdf</code>.</li>
+                        <li>A matrícula deve conter 6 dígitos.</li>
                     </ul>
                 </div>
                 
@@ -298,6 +342,7 @@ const UploadPayslip: React.FC<UploadPayslipProps> = ({ employees, users, payslip
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Funcionário</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Mês/Ano</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Ação</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
@@ -311,6 +356,19 @@ const UploadPayslip: React.FC<UploadPayslipProps> = ({ employees, users, payslip
                                     {pf.status === 'duplicate' && <span title={pf.errorMessage} className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 cursor-help">Duplicado</span>}
                                     {pf.status === 'error' && <span title={pf.errorMessage} className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 cursor-help">Erro</span>}
                                 </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                    {pf.status === 'duplicate' && (
+                                        <label className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={filesToReplace.has(index)}
+                                                onChange={() => toggleReplacement(index)}
+                                                className="h-4 w-4 text-slate-600 border-slate-300 rounded focus:ring-slate-500"
+                                            />
+                                            <span className="text-slate-700">Substituir</span>
+                                        </label>
+                                    )}
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -319,14 +377,23 @@ const UploadPayslip: React.FC<UploadPayslipProps> = ({ employees, users, payslip
             <div className="mt-6 flex justify-end">
                 <button
                     onClick={handleImportClick}
-                    disabled={filesReady === 0 || isProcessing}
+                    disabled={filesToImportCount === 0 || isProcessing}
                     className="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-800 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed"
                 >
-                    {isProcessing ? 'Importando...' : `Importar ${filesReady} Contracheque(s)`}
+                    {isProcessing ? 'Importando...' : `Importar ${filesToImportCount} Contracheque(s)`}
                 </button>
             </div>
         </div>
       )}
+
+      <ConfirmationDialog
+        isOpen={isConfirmOpen}
+        title="Substituir Contracheque"
+        message="Já existe um contracheque para este funcionário neste período. Deseja substituí-lo?"
+        onConfirm={handleConfirmSubmit}
+        onCancel={() => { setIsConfirmOpen(false); setPayslipToSubmit(null); }}
+        confirmText="Sim, Substituir"
+      />
     </div>
   );
 };

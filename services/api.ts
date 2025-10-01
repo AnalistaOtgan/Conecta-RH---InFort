@@ -1,5 +1,7 @@
-import { USERS, PAYSLIPS, TIMEOFF_REQUESTS, MEETING_REQUESTS, ANNOUNCEMENTS, EVENTS, APP_NOTIFICATIONS, LOGS } from '../constants';
-import { User, Payslip, TimeOffRequest, MeetingRequest, Announcement, Event, AppNotification, RequestStatus, Role, LogActionType, LogEntry } from '../types';
+
+
+import { USERS, PAYSLIPS, TIMEOFF_REQUESTS, MEETING_REQUESTS, ANNOUNCEMENTS, EVENTS, APP_NOTIFICATIONS, LOGS, MEDICAL_CERTIFICATES } from '../constants';
+import { User, Payslip, TimeOffRequest, MeetingRequest, Announcement, Event, AppNotification, RequestStatus, Role, LogActionType, LogEntry, MedicalCertificate } from '../types';
 
 // Simulate API latency
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -43,6 +45,11 @@ export const api = {
   async getTimeOffRequests(): Promise<TimeOffRequest[]> {
     await delay(200);
     return Promise.resolve(TIMEOFF_REQUESTS);
+  },
+
+  async getMedicalCertificates(): Promise<MedicalCertificate[]> {
+    await delay(200);
+    return Promise.resolve(MEDICAL_CERTIFICATES);
   },
   
   async getMeetingRequests(): Promise<MeetingRequest[]> {
@@ -102,7 +109,7 @@ export const api = {
   // WRITE operations
   // ===================================
 
-  async registerEmployee(name: string, email: string, matricula: string, adminUser: User, emergencyPhone?: string): Promise<User> {
+  async registerEmployee(name: string, email: string, matricula: string, adminUser: User, emergencyPhone?: string, birthDate?: string): Promise<User> {
     await delay(500);
     if (USERS.some(u => u.email.toLowerCase() === email.toLowerCase())) {
       throw new Error('Este email já está em uso.');
@@ -120,6 +127,7 @@ export const api = {
         needsPasswordSetup: true,
         status: 'ATIVO',
         emergencyPhone: emergencyPhone || undefined,
+        birthDate: birthDate || undefined,
     };
     USERS.push(newUser); // Mutating mock data
     addLog(adminUser, LogActionType.CADASTRO_USUARIO, `Cadastrou o novo usuário '${name}' (Matrícula: ${matricula}, Email: ${email}).`);
@@ -143,6 +151,7 @@ export const api = {
       const name = row['Nome Completo'];
       const email = row['Email'];
       const matricula = row['Matrícula'] ? String(row['Matrícula']) : null;
+      const birthDateRaw = row['Data de Nascimento'];
       const emergencyPhone = row['Telefone de Emergencia'];
       const rowIndex = index + 2;
 
@@ -162,8 +171,8 @@ export const api = {
       
       let finalMatricula = '';
       if (matricula) {
-        if (!/^\d{8}$/.test(matricula)) {
-          errors.push({ row: rowIndex, data: row, reason: 'Matrícula deve conter 8 dígitos numéricos.' });
+        if (!/^\d{6}$/.test(matricula)) {
+          errors.push({ row: rowIndex, data: row, reason: 'Matrícula deve conter 6 dígitos numéricos.' });
           return;
         }
         if (existingMatriculas.has(matricula) || matriculasInThisBatch.has(matricula)) {
@@ -173,10 +182,43 @@ export const api = {
         finalMatricula = matricula;
       } else {
         maxMatricula++;
-        finalMatricula = String(maxMatricula).padStart(8, '0');
+        finalMatricula = String(maxMatricula).padStart(6, '0');
       }
       
       matriculasInThisBatch.add(finalMatricula);
+      
+      let birthDate: string | undefined = undefined;
+      if (birthDateRaw) {
+        try {
+            if (typeof birthDateRaw === 'number') { // Excel serial date
+                const utc_days = Math.floor(birthDateRaw - 25569);
+                const utc_value = utc_days * 86400;
+                const date_info = new Date(utc_value * 1000);
+                birthDate = new Date(date_info.getTime() + (date_info.getTimezoneOffset() * 60 * 1000)).toISOString().split('T')[0];
+            } else if (typeof birthDateRaw === 'string') {
+                let parts = birthDateRaw.split(/[/-]/);
+                if (parts.length === 3) { // Handles DD/MM/YYYY and YYYY-MM-DD
+                    const day = parts[0].length === 4 ? parts[2] : parts[0];
+                    const month = parts[1];
+                    const year = parts[0].length === 4 ? parts[0] : parts[2].length === 4 ? parts[2] : `20${parts[2]}`;
+                    
+                    if (!isNaN(new Date(`${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`).getTime())) {
+                        birthDate = `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`;
+                    }
+                } else {
+                    const parsedDate = new Date(birthDateRaw);
+                    if (!isNaN(parsedDate.getTime())) {
+                        birthDate = parsedDate.toISOString().split('T')[0];
+                    }
+                }
+            } else if (birthDateRaw instanceof Date) {
+                 birthDate = birthDateRaw.toISOString().split('T')[0];
+            }
+        } catch (e) {
+            // Ignore if date parsing fails, it's optional
+        }
+      }
+
 
       const newUser: User = {
         id: Date.now() + index,
@@ -188,6 +230,7 @@ export const api = {
         needsPasswordSetup: true,
         status: 'ATIVO',
         emergencyPhone: emergencyPhone ? String(emergencyPhone) : undefined,
+        birthDate,
       };
       newUsers.push(newUser);
     });
@@ -239,7 +282,7 @@ export const api = {
       return Promise.resolve(user);
   },
 
-  async updateEmployee(userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula'>>, adminUser: User): Promise<User> {
+  async updateEmployee(userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula' | 'birthDate'>>, adminUser: User): Promise<User> {
       await delay(300);
       const userIndex = USERS.findIndex(u => u.id === userId);
       if (userIndex === -1) throw new Error("Usuário não encontrado.");
@@ -305,6 +348,38 @@ export const api = {
 
       return Promise.resolve(request);
   },
+  
+  async addMedicalCertificate(requestData: Omit<MedicalCertificate, 'id' | 'status' | 'userName' | 'userId' | 'submissionDate' | 'fileUrl'>, currentUser: User): Promise<MedicalCertificate> {
+    await delay(400);
+    const newCertificate: MedicalCertificate = {
+        ...requestData,
+        id: `mc${Date.now()}`,
+        status: RequestStatus.PENDENTE,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        submissionDate: new Date().toISOString(),
+        fileUrl: `/certificates/med-cert-${Date.now()}.pdf`, // Mock file URL
+    };
+    MEDICAL_CERTIFICATES.unshift(newCertificate);
+    // Note: Logging for certificate submission could be done by the system, not an admin action.
+    // However, if we want to log it via an admin proxy:
+    // addLog(adminUser, LogActionType.ENVIO_ATESTADO, `Usuário '${currentUser.name}' enviou um atestado de ${requestData.days} dia(s).`);
+    return Promise.resolve(newCertificate);
+  },
+
+  async updateMedicalCertificateStatus(id: string, status: RequestStatus.APROVADO | RequestStatus.NEGADO, adminUser: User): Promise<MedicalCertificate> {
+      await delay(300);
+      const certIndex = MEDICAL_CERTIFICATES.findIndex(c => c.id === id);
+      if (certIndex === -1) throw new Error("Atestado não encontrado.");
+      const certificate = MEDICAL_CERTIFICATES[certIndex];
+      certificate.status = status;
+      
+      const actionType = status === RequestStatus.APROVADO ? LogActionType.APROVACAO_ATESTADO : LogActionType.NEGACAO_ATESTADO;
+      const actionVerb = status === RequestStatus.APROVADO ? 'Aprovou' : 'Negou';
+      addLog(adminUser, actionType, `${actionVerb} o atestado de '${certificate.userName}' (${certificate.days} dia(s) a partir de ${new Date(certificate.startDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}).`);
+
+      return Promise.resolve(certificate);
+  },
 
   async addMeetingRequest(requestData: Omit<MeetingRequest, 'id' | 'status' | 'userName' | 'userId'>, currentUser: User): Promise<MeetingRequest> {
       await delay(400);
@@ -335,6 +410,12 @@ export const api = {
 
   async addPayslip(payslipData: Omit<Payslip, 'id' | 'fileUrl'>, adminUser: User): Promise<Payslip> {
       await delay(400);
+      
+      const existingIndex = PAYSLIPS.findIndex(p => p.userId === payslipData.userId && p.month === payslipData.month && p.year === payslipData.year);
+      if (existingIndex > -1) {
+          PAYSLIPS.splice(existingIndex, 1);
+      }
+
       const employee = USERS.find(u => u.id === payslipData.userId);
       const newPayslip: Payslip = {
           ...payslipData,
@@ -342,14 +423,20 @@ export const api = {
           fileUrl: `/payslips/new-${Date.now()}.pdf`,
       };
       PAYSLIPS.push(newPayslip);
-      addLog(adminUser, LogActionType.LANCAMENTO_CONTRACHEQUE, `Lançou o contracheque de ${payslipData.month}/${payslipData.year} para '${employee?.name || 'ID desconhecido'}'.`);
+      addLog(adminUser, LogActionType.LANCAMENTO_CONTRACHEQUE, `Lançou ${existingIndex > -1 ? '(substituindo) ' : ''}o contracheque de ${payslipData.month}/${payslipData.year} para '${employee?.name || 'ID desconhecido'}'.`);
       return Promise.resolve(newPayslip);
   },
 
   async addBatchPayslips(payslipsData: Omit<Payslip, 'id' | 'fileUrl'>[], adminUser: User): Promise<{ newPayslips: Payslip[], successCount: number }> {
       await delay(1000);
       const newPayslips: Payslip[] = [];
+      
       payslipsData.forEach((p, index) => {
+          const existingIndex = PAYSLIPS.findIndex(item => item.userId === p.userId && item.month === p.month && item.year === p.year);
+          if (existingIndex > -1) {
+              PAYSLIPS.splice(existingIndex, 1);
+          }
+          
           const newPayslip: Payslip = {
               ...p,
               id: `p-batch-${Date.now()}-${index}`,
@@ -359,7 +446,7 @@ export const api = {
       });
 
       PAYSLIPS.push(...newPayslips);
-      addLog(adminUser, LogActionType.LANCAMENTO_CONTRACHEQUE, `Lançou ${newPayslips.length} contracheque(s) em lote.`);
+      addLog(adminUser, LogActionType.LANCAMENTO_CONTRACHEQUE, `Lançou ${newPayslips.length} contracheque(s) em lote (com possíveis substituições).`);
       
       return Promise.resolve({ newPayslips, successCount: newPayslips.length });
   },

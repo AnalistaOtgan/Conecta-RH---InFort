@@ -1,6 +1,8 @@
+
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { api } from './services/api';
-import { User, Role, Payslip, TimeOffRequest, MeetingRequest, Announcement, Notification as NotificationType, RequestStatus, Event, AppNotification, ImportResult, LogEntry } from './types';
+import { User, Role, Payslip, TimeOffRequest, MeetingRequest, Announcement, Notification as NotificationType, RequestStatus, Event, AppNotification, ImportResult, LogEntry, MedicalCertificate } from './types';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Notification from './components/Notification';
@@ -89,6 +91,7 @@ const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
+  const [medicalCertificates, setMedicalCertificates] = useState<MedicalCertificate[]>([]);
   const [meetingRequests, setMeetingRequests] = useState<MeetingRequest[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -142,6 +145,7 @@ const App: React.FC = () => {
           eventsData,
           notificationsData,
           logsData,
+          medicalCertificatesData
         ] = await Promise.all([
           api.getUsers(),
           api.getPayslips(),
@@ -151,6 +155,7 @@ const App: React.FC = () => {
           api.getEvents(),
           api.getAppNotifications(),
           api.getLogs(),
+          api.getMedicalCertificates(),
         ]);
 
         const birthdayAnnouncements = generateBirthdayAnnouncements(usersData, announcementsDataFromApi);
@@ -164,6 +169,7 @@ const App: React.FC = () => {
         setEvents(eventsData);
         setAppNotifications(notificationsData);
         setLogs(logsData);
+        setMedicalCertificates(medicalCertificatesData);
       } catch (error) {
         console.error("Failed to load initial data", error);
         showNotification("Não foi possível carregar os dados do aplicativo.", "error");
@@ -264,10 +270,10 @@ const App: React.FC = () => {
     setCurrentUser(null);
   };
   
-  const registerEmployee = useCallback(async (name: string, email: string, matricula: string, emergencyPhone?: string) => {
+  const registerEmployee = useCallback(async (name: string, email: string, matricula: string, emergencyPhone?: string, birthDate?: string) => {
     if (!currentUser) return;
     try {
-        const newUser = await api.registerEmployee(name, email, matricula, currentUser, emergencyPhone);
+        const newUser = await api.registerEmployee(name, email, matricula, currentUser, emergencyPhone, birthDate);
         setUsers(prev => [...prev, newUser]);
         showNotification(`Funcionário ${name} cadastrado com sucesso.`, 'success');
         refreshLogs();
@@ -341,7 +347,7 @@ const App: React.FC = () => {
     }
   }, [currentUser, refreshLogs]);
 
-  const updateEmployee = useCallback(async (userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula'>>) => {
+  const updateEmployee = useCallback(async (userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula' | 'birthDate'>>) => {
     if (!currentUser) return;
     try {
         const updatedUser = await api.updateEmployee(userId, data, currentUser);
@@ -396,6 +402,35 @@ const App: React.FC = () => {
         showNotification('Erro ao atualizar solicitação.', 'error');
     }
   }, [addAppNotification, currentUser, refreshLogs]);
+  
+  const addMedicalCertificate = useCallback(async (request: Omit<MedicalCertificate, 'id' | 'status' | 'userName' | 'userId' | 'submissionDate' | 'fileUrl'>) => {
+    if(!currentUser) return;
+    try {
+        const newCertificate = await api.addMedicalCertificate(request, currentUser);
+        setMedicalCertificates(prev => [newCertificate, ...prev]);
+        showNotification('Atestado médico enviado com sucesso!', 'success');
+        
+        const hrUsers = users.filter(u => u.role === Role.RH || u.role === Role.ADMIN);
+        hrUsers.forEach(hr => {
+            addAppNotification(hr.id, `Novo atestado médico enviado por ${currentUser.name}.`, 'manage-certificates');
+        });
+    } catch (error) {
+        showNotification('Erro ao enviar atestado.', 'error');
+    }
+  }, [currentUser, users, addAppNotification]);
+  
+  const updateMedicalCertificateStatus = useCallback(async (id: string, status: RequestStatus.APROVADO | RequestStatus.NEGADO) => {
+    if (!currentUser) return;
+    try {
+        const updatedCertificate = await api.updateMedicalCertificateStatus(id, status, currentUser);
+        setMedicalCertificates(prev => prev.map(cert => cert.id === id ? updatedCertificate : cert));
+        showNotification(`Atestado ${status.toLowerCase()} com sucesso.`, 'info');
+        addAppNotification(updatedCertificate.userId, `Seu atestado de ${updatedCertificate.days} dia(s) foi ${status === RequestStatus.APROVADO ? 'Aprovado' : 'Negado'}.`, 'dashboard');
+        refreshLogs();
+    } catch (error) {
+        showNotification('Erro ao atualizar atestado.', 'error');
+    }
+  }, [addAppNotification, currentUser, refreshLogs]);
 
   const addMeetingRequest = useCallback(async (request: Omit<MeetingRequest, 'id' | 'status' | 'userName' | 'userId'>) => {
     if(!currentUser) return;
@@ -430,7 +465,10 @@ const App: React.FC = () => {
     if (!currentUser) return;
     try {
         const newPayslip = await api.addPayslip(payslip, currentUser);
-        setPayslips(prev => [...prev, newPayslip]);
+        setPayslips(prev => {
+            const others = prev.filter(p => !(p.userId === payslip.userId && p.month === payslip.month && p.year === payslip.year));
+            return [...others, newPayslip];
+        });
         showNotification('Contracheque lançado com sucesso!', 'success');
         refreshLogs();
     } catch (error) {
@@ -442,7 +480,11 @@ const App: React.FC = () => {
     if (!currentUser) return { successCount: 0 };
     try {
         const { newPayslips, successCount } = await api.addBatchPayslips(payslipsData, currentUser);
-        setPayslips(prev => [...prev, ...newPayslips]);
+        setPayslips(prev => {
+            const payslipsToReplace = new Set(payslipsData.map(p => `${p.userId}-${p.month}-${p.year}`));
+            const others = prev.filter(p => !payslipsToReplace.has(`${p.userId}-${p.month}-${p.year}`));
+            return [...others, ...newPayslips];
+        });
         
         newPayslips.forEach(p => {
             addAppNotification(p.userId, `Seu contracheque de ${p.month}/${p.year} está disponível.`, 'payslips');
@@ -560,7 +602,7 @@ const App: React.FC = () => {
       <Dashboard
         user={currentUser}
         onLogout={handleLogout}
-        data={{ users, payslips, timeOffRequests, meetingRequests, announcements, events, appNotifications, logs }}
+        data={{ users, payslips, timeOffRequests, meetingRequests, announcements, events, appNotifications, logs, medicalCertificates }}
         actions={{
           addTimeOffRequest,
           updateTimeOffStatus,
@@ -581,6 +623,8 @@ const App: React.FC = () => {
           deleteEvent,
           updateAnnouncementStatus,
           deleteAnnouncement,
+          addMedicalCertificate,
+          updateMedicalCertificateStatus,
           markNotificationsAsRead: () => markNotificationsAsRead(currentUser.id),
         }}
       />

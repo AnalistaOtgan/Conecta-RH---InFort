@@ -15,6 +15,10 @@ const actionColors: { [key in LogActionType]: string } = {
     [LogActionType.PROMOCAO_CARGO]: 'bg-purple-100 text-purple-800',
     [LogActionType.APROVACAO_FOLGA]: 'bg-green-100 text-green-800',
     [LogActionType.NEGACAO_FOLGA]: 'bg-red-100 text-red-800',
+    // FIX: Added missing log action types for medical certificates.
+    [LogActionType.ENVIO_ATESTADO]: 'bg-cyan-100 text-cyan-800',
+    [LogActionType.APROVACAO_ATESTADO]: 'bg-green-100 text-green-800',
+    [LogActionType.NEGACAO_ATESTADO]: 'bg-red-100 text-red-800',
     [LogActionType.APROVACAO_REUNIAO]: 'bg-green-100 text-green-800',
     [LogActionType.NEGACAO_REUNIAO]: 'bg-red-100 text-red-800',
     [LogActionType.LANCAMENTO_CONTRACHEQUE]: 'bg-indigo-100 text-indigo-800',

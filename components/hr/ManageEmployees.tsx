@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Role, ImportResult } from '../../types';
 import ConfirmationDialog from '../shared/ConfirmationDialog';
@@ -71,7 +73,7 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
     reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(worksheet);
@@ -135,7 +137,8 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
         if (localConflictRows.length > 0) {
             setStep('conflict');
         } else if (localValidRows.length > 0 || localErrorRows.length > 0) {
-            await handleFinalImport(localValidRows, []);
+            // FIX: Pass the correctly typed (but empty) `localConflictRows` array to avoid type inference issues with a new empty array.
+            await handleFinalImport(localValidRows, localConflictRows);
         } else {
             setFinalResult({ imported: 0, deactivated: 0, errors: 0, skipped: 0 });
             setStep('result');
@@ -143,7 +146,7 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
 
       } catch (error) {
           console.error("Error parsing file:", error);
-          setErrorRows([{ row: 0, data: {}, reason: "Erro ao ler o arquivo. Verifique se o formato está correto."}]);
+          setErrorRows([{ row: 0, data: { 'Nome Completo': 'N/A', Email: 'N/A', 'Matrícula': 'N/A' }, reason: "Erro ao ler o arquivo. Verifique se o formato está correto."}]);
           setStep('result');
       } finally {
         setIsProcessing(false);
@@ -199,7 +202,7 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
   }
 
   const downloadTemplate = () => {
-      const csvContent = "data:text/csv;charset=utf-8,Nome Completo,Email,Matrícula,Telefone de Emergencia\nExemplo Nome,exemplo@email.com,00001001,11999998888";
+      const csvContent = "data:text/csv;charset=utf-8,Nome Completo,Email,Matrícula,Data de Nascimento,Telefone de Emergencia\nExemplo Nome,exemplo@email.com,001001,1990-12-31,11999998888";
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
@@ -218,7 +221,7 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
                 <h4 className="font-semibold text-slate-700">Instruções</h4>
                 <ul className="list-disc list-inside text-sm text-slate-600 mt-2 space-y-1">
                     <li>O arquivo deve ser no formato <code className="bg-slate-200 px-1 rounded">.csv</code> ou <code className="bg-slate-200 px-1 rounded">.xlsx</code>.</li>
-                    <li>As colunas devem ser: <code className="bg-slate-200 px-1 rounded">Nome Completo</code>, <code className="bg-slate-200 px-1 rounded">Email</code>, <code className="bg-slate-200 px-1 rounded">Matrícula</code> (8 dígitos), <code className="bg-slate-200 px-1 rounded">Telefone de Emergencia</code> (opcional).</li>
+                    <li>As colunas devem ser: <code className="bg-slate-200 px-1 rounded">Nome Completo</code>, <code className="bg-slate-200 px-1 rounded">Email</code>, <code className="bg-slate-200 px-1 rounded">Matrícula</code> (6 dígitos), <code className="bg-slate-200 px-1 rounded">Data de Nascimento</code> (opcional, ex: AAAA-MM-DD), <code className="bg-slate-200 px-1 rounded">Telefone de Emergencia</code> (opcional).</li>
                     <li>Se a matrícula não for fornecida, uma será gerada automaticamente.</li>
                 </ul>
                 <button onClick={downloadTemplate} className="text-sm mt-3 text-slate-600 hover:text-slate-900 font-medium">Baixar modelo</button>
@@ -356,7 +359,7 @@ const ImportEmployeesModal: React.FC<ImportEmployeesModalProps> = ({ isOpen, onC
 interface RegisterEmployeeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (name: string, email: string, matricula: string, emergencyPhone?: string) => void;
+  onSubmit: (name: string, email: string, matricula: string, emergencyPhone?: string, birthDate?: string) => void;
   users: User[];
 }
 
@@ -364,18 +367,20 @@ const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, o
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [matricula, setMatricula] = useState('');
+  const [birthDate, setBirthDate] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
   const [error, setError] = useState('');
 
   const handleMatriculaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-    setMatricula(value.slice(0, 8));
+    setMatricula(value.slice(0, 6));
   };
 
   const resetStateAndClose = () => {
     setName('');
     setEmail('');
     setMatricula('');
+    setBirthDate('');
     setEmergencyPhone('');
     setError('');
     onClose();
@@ -383,8 +388,8 @@ const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (matricula.length !== 8) {
-        setError('A matrícula deve conter 8 dígitos.');
+    if (matricula.length !== 6) {
+        setError('A matrícula deve conter 6 dígitos.');
         return;
     }
     if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
@@ -396,7 +401,7 @@ const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, o
         return;
     }
     setError('');
-    onSubmit(name, email, matricula, emergencyPhone);
+    onSubmit(name, email, matricula, emergencyPhone, birthDate);
     resetStateAndClose();
   };
   
@@ -433,10 +438,20 @@ const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, o
                     id="matricula"
                     value={matricula}
                     onChange={handleMatriculaChange}
-                    placeholder="00000000"
-                    maxLength={8}
+                    placeholder="000000"
+                    maxLength={6}
                     className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
                     required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="birthDate" className="block text-sm font-medium text-slate-700">Data de Nascimento (Opcional)</label>
+                  <input
+                    type="date"
+                    id="birthDate"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
                   />
                 </div>
                 <div>
@@ -480,7 +495,7 @@ const RegisterEmployeeModal: React.FC<RegisterEmployeeModalProps> = ({ isOpen, o
 interface EditEmployeeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula'>>) => void;
+  onSubmit: (userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula' | 'birthDate'>>) => void;
   user: User | null;
   allUsers: User[];
 }
@@ -490,6 +505,7 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
   const [email, setEmail] = useState('');
   const [matricula, setMatricula] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
+  const [birthDate, setBirthDate] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -498,6 +514,7 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
       setEmail(user.email);
       setMatricula(user.matricula);
       setEmergencyPhone(user.emergencyPhone || '');
+      setBirthDate(user.birthDate || '');
       setError('');
     }
   }, [user]);
@@ -506,7 +523,7 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
   
   const handleMatriculaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-    setMatricula(value.slice(0, 8));
+    setMatricula(value.slice(0, 6));
   };
 
 
@@ -522,8 +539,8 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
     }
 
     if (matricula !== user.matricula) {
-      if (matricula.length !== 8) {
-        setError('A matrícula deve conter 8 dígitos.');
+      if (matricula.length !== 6) {
+        setError('A matrícula deve conter 6 dígitos.');
         return;
       }
       if (allUsers.some(u => u.id !== user.id && u.matricula === matricula)) {
@@ -532,10 +549,11 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
       }
     }
     
-    const updatedData: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula'>> = {};
+    const updatedData: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula' | 'birthDate'>> = {};
     if (name !== user.name) updatedData.name = name;
     if (email !== user.email) updatedData.email = email;
     if (matricula !== user.matricula) updatedData.matricula = matricula;
+    if (birthDate !== (user.birthDate || '')) updatedData.birthDate = birthDate;
     if (emergencyPhone !== (user.emergencyPhone || '')) updatedData.emergencyPhone = emergencyPhone;
 
     if (Object.keys(updatedData).length > 0) {
@@ -572,10 +590,17 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
                     id="edit-matricula"
                     value={matricula}
                     onChange={handleMatriculaChange}
-                    placeholder="00000000"
-                    maxLength={8}
+                    placeholder="000000"
+                    maxLength={6}
                     className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
                     required
+                  />
+                </div>
+                 <div>
+                  <label htmlFor="edit-birthDate" className="block text-sm font-medium text-slate-700">Data de Nascimento</label>
+                  <input
+                    type="date" id="edit-birthDate" value={birthDate} onChange={(e) => setBirthDate(e.target.value)}
+                    className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
                   />
                 </div>
                 <div>
@@ -616,9 +641,9 @@ interface ManageEmployeesProps {
   onUpdateStatus: (userId: number, status: 'ATIVO' | 'INATIVO') => void;
   onResetPassword: (userId: number) => void;
   onImport: (data: any[]) => Promise<ImportResult>;
-  onRegister: (name: string, email: string, matricula: string, emergencyPhone?: string) => void;
+  onRegister: (name: string, email: string, matricula: string, emergencyPhone?: string, birthDate?: string) => void;
   onUpdateRole: (userId: number, role: Role) => void;
-  onUpdateEmployee: (userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula'>>) => void;
+  onUpdateEmployee: (userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula' | 'birthDate'>>) => void;
   onDelete: (userId: number) => void;
 }
 
@@ -774,6 +799,10 @@ const ManageEmployees: React.FC<ManageEmployeesProps> = ({ user: currentUser, us
                     <div className="flex justify-between items-center">
                         <span className="font-semibold">Cargo:</span>
                         <span>{user.role}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="font-semibold">Nascimento:</span>
+                        <span>{user.birthDate ? new Date(user.birthDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}</span>
                     </div>
                      <div className="flex justify-between items-center">
                         <span className="font-semibold">Status:</span>

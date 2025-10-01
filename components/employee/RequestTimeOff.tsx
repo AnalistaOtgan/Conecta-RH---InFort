@@ -10,7 +10,7 @@ const RequestTimeOff: React.FC<RequestTimeOffProps> = ({ onSubmit }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [justification, setJustification] = useState('');
-  const [medicalCertificate, setMedicalCertificate] = useState<File | null>(null);
+  const [approvedByLeader, setApprovedByLeader] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -29,13 +29,9 @@ const RequestTimeOff: React.FC<RequestTimeOffProps> = ({ onSubmit }) => {
         type,
         startDate,
         endDate,
-        justification
+        justification,
+        approvedByLeader: approvedByLeader || undefined,
     };
-
-    if (type === TimeOffType.LICENCA_MEDICA && medicalCertificate) {
-        // Simulate file upload and get a URL
-        requestData.medicalCertificateUrl = `/certificates/med-cert-${Date.now()}.pdf`;
-    }
 
     onSubmit(requestData);
     
@@ -44,9 +40,7 @@ const RequestTimeOff: React.FC<RequestTimeOffProps> = ({ onSubmit }) => {
     setStartDate('');
     setEndDate('');
     setJustification('');
-    setMedicalCertificate(null);
-    const fileInput = document.getElementById('medical-certificate-upload') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
+    setApprovedByLeader('');
   };
 
   return (
@@ -64,21 +58,6 @@ const RequestTimeOff: React.FC<RequestTimeOffProps> = ({ onSubmit }) => {
             {Object.values(TimeOffType).map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
-        
-        {type === TimeOffType.LICENCA_MEDICA && (
-            <div>
-                <label className="block text-sm font-medium text-slate-700">Atestado Médico (Opcional)</label>
-                <div className="mt-1 flex items-center space-x-4">
-                    <label htmlFor="medical-certificate-upload" className="cursor-pointer bg-white py-2 px-3 border border-slate-300 rounded-md shadow-sm text-sm leading-4 font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
-                        <span>Selecionar arquivo</span>
-                        <input id="medical-certificate-upload" name="medical-certificate-upload" type="file" className="sr-only" onChange={(e) => setMedicalCertificate(e.target.files ? e.target.files[0] : null)} accept="application/pdf,image/jpeg,image/png" />
-                    </label>
-                    {medicalCertificate && (
-                        <p className="text-sm text-slate-600 truncate">{medicalCertificate.name}</p>
-                    )}
-                </div>
-            </div>
-        )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -108,11 +87,23 @@ const RequestTimeOff: React.FC<RequestTimeOffProps> = ({ onSubmit }) => {
           <label htmlFor="justification" className="block text-sm font-medium text-slate-700">Justificativa (opcional)</label>
           <textarea
             id="justification"
-            rows={4}
+            rows={3}
             value={justification}
             onChange={(e) => setJustification(e.target.value)}
             className="mt-1 block w-full bg-white border border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
           ></textarea>
+        </div>
+        
+        <div>
+          <label htmlFor="approvedByLeader" className="block text-sm font-medium text-slate-700">Liberada pelo líder (Opcional)</label>
+          <input
+            type="text"
+            id="approvedByLeader"
+            value={approvedByLeader}
+            onChange={(e) => setApprovedByLeader(e.target.value)}
+            placeholder="Nome do líder que aprovou"
+            className="mt-1 block w-full bg-white border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm text-slate-800"
+          />
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}

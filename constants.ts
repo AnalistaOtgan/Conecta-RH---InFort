@@ -1,5 +1,6 @@
 
-import { Role, User, Payslip, TimeOffRequest, RequestStatus, TimeOffType, MeetingRequest, Announcement, Event, AppNotification, LogEntry } from './types';
+
+import { Role, User, Payslip, TimeOffRequest, RequestStatus, TimeOffType, MeetingRequest, Announcement, Event, AppNotification, LogEntry, MedicalCertificate } from './types';
 
 const today = new Date();
 const currentMonth = today.getMonth() + 1;
@@ -9,12 +10,12 @@ const yesterdayMonth = yesterday.getMonth() + 1;
 
 
 export const USERS: User[] = [
-  { id: 1, name: 'Ana Silva', email: 'ana@email.com', cpf: '11122233344', matricula: '00001001', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'ATIVO', birthDate: `1990-${String(currentMonth).padStart(2, '0')}-15`, photoUrl: 'https://i.pravatar.cc/300?u=1' },
-  { id: 2, name: 'Carlos Pereira', email: 'carlos@email.com', cpf: '22233344455', matricula: '00001002', role: Role.RH, password: 'password', needsPasswordSetup: false, status: 'ATIVO', birthDate: '1985-04-20', photoUrl: 'https://i.pravatar.cc/300?u=2' },
-  { id: 3, name: 'Beatriz Costa', email: 'beatriz@email.com', cpf: '33344455566', matricula: '00001003', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'ATIVO', birthDate: `1995-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`, photoUrl: 'https://i.pravatar.cc/300?u=3' },
-  { id: 4, name: 'Davi Souza', email: 'davi@email.com', cpf: '44455566677', matricula: '00001004', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'INATIVO', birthDate: '2000-11-05', photoUrl: 'https://i.pravatar.cc/300?u=4' },
-  { id: 5, name: 'Analista RH', email: 'analista@email.com', cpf: '55566677788', matricula: '00001005', role: Role.RH, password: 'admin123', needsPasswordSetup: false, status: 'ATIVO', birthDate: `1988-${String(yesterdayMonth).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`, photoUrl: 'https://i.pravatar.cc/300?u=5' },
-  { id: 6, name: 'Admin Geral', email: 'admin@email.com', cpf: '66677788899', matricula: '00000001', role: Role.ADMIN, password: 'admin123', needsPasswordSetup: false, status: 'ATIVO', birthDate: '1980-01-01' },
+  { id: 1, name: 'Ana Silva', email: 'ana@email.com', cpf: '11122233344', matricula: '001001', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'ATIVO', birthDate: `1990-${String(currentMonth).padStart(2, '0')}-15`, photoUrl: 'https://i.pravatar.cc/300?u=1' },
+  { id: 2, name: 'Carlos Pereira', email: 'carlos@email.com', cpf: '22233344455', matricula: '001002', role: Role.RH, password: 'password', needsPasswordSetup: false, status: 'ATIVO', birthDate: '1985-04-20', photoUrl: 'https://i.pravatar.cc/300?u=2' },
+  { id: 3, name: 'Beatriz Costa', email: 'beatriz@email.com', cpf: '33344455566', matricula: '001003', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'ATIVO', birthDate: `1995-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`, photoUrl: 'https://i.pravatar.cc/300?u=3' },
+  { id: 4, name: 'Davi Souza', email: 'davi@email.com', cpf: '44455566677', matricula: '001004', role: Role.FUNCIONARIO, password: 'password', needsPasswordSetup: false, status: 'INATIVO', birthDate: '2000-11-05', photoUrl: 'https://i.pravatar.cc/300?u=4' },
+  { id: 5, name: 'Analista RH', email: 'analista@email.com', cpf: '55566677788', matricula: '001005', role: Role.RH, password: 'admin123', needsPasswordSetup: false, status: 'ATIVO', birthDate: `1988-${String(yesterdayMonth).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`, photoUrl: 'https://i.pravatar.cc/300?u=5' },
+  { id: 6, name: 'Admin Geral', email: 'admin@email.com', cpf: '66677788899', matricula: '000001', role: Role.ADMIN, password: 'admin123', needsPasswordSetup: false, status: 'ATIVO', birthDate: '1980-01-01' },
 ];
 
 export const PAYSLIPS: Payslip[] = [
@@ -25,7 +26,13 @@ export const PAYSLIPS: Payslip[] = [
 
 export const TIMEOFF_REQUESTS: TimeOffRequest[] = [
   { id: 'to1', userId: 1, userName: 'Ana Silva', type: TimeOffType.FERIAS, startDate: '2024-07-20', endDate: '2024-07-30', justification: 'Férias anuais', status: RequestStatus.APROVADO },
-  { id: 'to2', userId: 3, userName: 'Beatriz Costa', type: TimeOffType.LICENCA_MEDICA, startDate: '2024-08-01', endDate: '2024-08-05', justification: 'Consulta médica', status: RequestStatus.PENDENTE, medicalCertificateUrl: '/certificates/beatriz-med-cert-2024-08.pdf' },
+  { id: 'to2', userId: 3, userName: 'Beatriz Costa', type: TimeOffType.OUTRO, startDate: '2024-08-01', endDate: '2024-08-05', justification: 'Assuntos pessoais', status: RequestStatus.PENDENTE },
+  { id: 'to3', userId: 1, userName: 'Ana Silva', type: TimeOffType.BANCO_DE_HORAS, startDate: '2024-09-10', endDate: '2024-09-10', justification: 'Compensação de horas extras de projeto X.', approvedByLeader: 'Carlos Pereira', status: RequestStatus.PENDENTE },
+];
+
+export const MEDICAL_CERTIFICATES: MedicalCertificate[] = [
+    { id: 'mc1', userId: 3, userName: 'Beatriz Costa', submissionDate: '2024-07-28T10:00:00Z', startDate: '2024-08-01', days: 5, cidCode: 'J06.9', fileUrl: '/certificates/beatriz-med-cert-2024-08.pdf', status: RequestStatus.PENDENTE },
+    { id: 'mc2', userId: 1, userName: 'Ana Silva', submissionDate: '2024-06-15T14:30:00Z', startDate: '2024-06-15', days: 2, fileUrl: '/certificates/ana-med-cert-2024-06.pdf', status: RequestStatus.APROVADO },
 ];
 
 export const MEETING_REQUESTS: MeetingRequest[] = [

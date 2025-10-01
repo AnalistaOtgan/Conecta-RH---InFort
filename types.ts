@@ -1,5 +1,4 @@
 
-
 export enum Role {
   FUNCIONARIO = 'Funcionário',
   RH = 'RH',
@@ -31,7 +30,8 @@ export interface Payslip {
 
 export enum TimeOffType {
   FERIAS = 'Férias',
-  LICENCA_MEDICA = 'Licença Médica',
+  BANCO_DE_HORAS = 'Banco de Horas',
+  FERIADO = 'Feriado',
   OUTRO = 'Outro'
 }
 
@@ -49,8 +49,20 @@ export interface TimeOffRequest {
   startDate: string;
   endDate: string;
   justification?: string;
+  approvedByLeader?: string;
   status: RequestStatus;
-  medicalCertificateUrl?: string;
+}
+
+export interface MedicalCertificate {
+  id: string;
+  userId: number;
+  userName: string;
+  submissionDate: string;
+  startDate: string;
+  days: number;
+  cidCode?: string;
+  fileUrl: string;
+  status: RequestStatus;
 }
 
 export interface MeetingRequest {
@@ -110,6 +122,9 @@ export enum LogActionType {
   PROMOCAO_CARGO = 'Promoção de Cargo',
   APROVACAO_FOLGA = 'Aprovação de Folga',
   NEGACAO_FOLGA = 'Negação de Folga',
+  ENVIO_ATESTADO = 'Envio de Atestado Médico',
+  APROVACAO_ATESTADO = 'Aprovação de Atestado Médico',
+  NEGACAO_ATESTADO = 'Negação de Atestado Médico',
   APROVACAO_REUNIAO = 'Aprovação de Reunião',
   NEGACAO_REUNIAO = 'Negação de Reunião',
   LANCAMENTO_CONTRACHEQUE = 'Lançamento de Contracheque',

@@ -1,6 +1,8 @@
+
+
 import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { User, Role, Payslip, TimeOffRequest, MeetingRequest, Announcement, RequestStatus, Event, AppNotification, ImportResult, LogEntry } from '../types';
+import { User, Role, Payslip, TimeOffRequest, MeetingRequest, Announcement, RequestStatus, Event, AppNotification, ImportResult, LogEntry, MedicalCertificate } from '../types';
 import Header from './shared/Header';
 import Sidebar from './shared/Sidebar';
 import EmployeeDashboard from './employee/EmployeeDashboard';
@@ -18,6 +20,8 @@ import MyEvents from './employee/MyEvents';
 import ManageEmployees from './hr/ManageEmployees';
 import FeedbackSystem from './hr/FeedbackSystem';
 import ActivityLog from './hr/ActivityLog';
+import SubmitMedicalCertificate from './employee/SubmitMedicalCertificate';
+import ManageMedicalCertificates from './hr/ManageMedicalCertificates';
 
 interface AnnouncementModalProps {
   isOpen: boolean;
@@ -72,6 +76,7 @@ interface DashboardProps {
     events: Event[];
     appNotifications: AppNotification[];
     logs: LogEntry[];
+    medicalCertificates: MedicalCertificate[];
   };
   actions: {
     addTimeOffRequest: (request: Omit<TimeOffRequest, 'id' | 'status' | 'userName' | 'userId'>) => void;
@@ -81,7 +86,7 @@ interface DashboardProps {
     addPayslip: (payslip: Omit<Payslip, 'id' | 'fileUrl'>) => void;
     addBatchPayslips: (payslips: Omit<Payslip, 'id' | 'fileUrl'>[]) => Promise<{ successCount: number }>;
     addAnnouncement: (announcement: Omit<Announcement, 'id' | 'date'>) => void;
-    registerEmployee: (name: string, email: string, matricula: string, emergencyPhone?: string) => void;
+    registerEmployee: (name: string, email: string, matricula: string, emergencyPhone?: string, birthDate?: string) => void;
     addEvent: (event: Omit<Event, 'id'>) => void;
     updateEvent: (eventId: string, eventData: Partial<Omit<Event, 'id'>>) => void;
     markNotificationsAsRead: (userId: number) => void;
@@ -89,11 +94,13 @@ interface DashboardProps {
     resetUserPassword: (userId: number) => void;
     importEmployees: (data: any[]) => Promise<ImportResult>;
     updateUserRole: (userId: number, role: Role) => void;
-    updateEmployee: (userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula'>>) => void;
+    updateEmployee: (userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula' | 'birthDate'>>) => void;
     deleteUser: (userId: number) => void;
     deleteEvent: (eventId: string) => void;
     updateAnnouncementStatus: (announcementId: string, status: 'ACTIVE' | 'ARCHIVED') => void;
     deleteAnnouncement: (announcementId: string) => void;
+    addMedicalCertificate: (request: Omit<MedicalCertificate, 'id' | 'status' | 'userName' | 'userId' | 'submissionDate' | 'fileUrl'>) => void;
+    updateMedicalCertificateStatus: (id: string, status: RequestStatus.APROVADO | RequestStatus.NEGADO) => void;
   };
 }
 
@@ -111,6 +118,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, data, actions }) 
           <Route path="/dashboard" element={<EmployeeDashboard user={user} announcements={data.announcements.filter(a => a.status !== 'ARCHIVED')} onAnnouncementClick={handleOpenAnnouncement} />} />
           <Route path="/payslips" element={<Payslips payslips={data.payslips.filter(p => p.userId === user.id)} />} />
           <Route path="/request-timeoff" element={<RequestTimeOff onSubmit={actions.addTimeOffRequest} />} />
+          <Route path="/submit-certificate" element={<SubmitMedicalCertificate onSubmit={actions.addMedicalCertificate} />} />
           <Route path="/schedule-meeting" element={<ScheduleMeeting onSubmit={actions.addMeetingRequest} />} />
           <Route path="/announcements" element={<Announcements user={user} announcements={data.announcements.filter(a => a.status !== 'ARCHIVED')} onAnnouncementClick={handleOpenAnnouncement} onUpdateStatus={actions.updateAnnouncementStatus} onDelete={actions.deleteAnnouncement} />} />
           <Route path="/my-events" element={<MyEvents events={data.events.filter(e => e.participantIds.includes(user.id) && e.status !== 'ARCHIVED')} />} />
@@ -133,6 +141,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, data, actions }) 
           <Route path="/announcements" element={<Announcements user={user} announcements={announcementsForMgmt} onAnnouncementClick={handleOpenAnnouncement} onUpdateStatus={actions.updateAnnouncementStatus} onDelete={actions.deleteAnnouncement} />} />
           <Route path="/feedback-system" element={<FeedbackSystem />} />
           <Route path="/manage-timeoff" element={<ManageTimeOff requests={data.timeOffRequests} onUpdateStatus={actions.updateTimeOffStatus} employees={allEmployees} />} />
+          <Route path="/manage-certificates" element={<ManageMedicalCertificates certificates={data.medicalCertificates} onUpdateStatus={actions.updateMedicalCertificateStatus} employees={allEmployees} />} />
           <Route path="/manage-meetings" element={<ManageMeetings requests={data.meetingRequests} onUpdateStatus={actions.updateMeetingStatus} employees={allEmployees} />} />
           <Route path="/upload-payslip" element={<UploadPayslip employees={employeesForPayslip} users={data.users} payslips={data.payslips} onAddSingle={actions.addPayslip} onAddBatch={actions.addBatchPayslips} />} />
           <Route path="/post-announcement" element={<PostAnnouncement onSubmit={actions.addAnnouncement} />} />
