@@ -60,7 +60,6 @@ const Login: React.FC<LoginProps> = ({ onLoginAttempt, error, clearError }) => {
                 name="password"
                 type="password"
                 autoComplete="current-password"
-                required
                 className="appearance-none rounded-none relative block w-full px-3 py-3 bg-white border border-slate-300 placeholder-slate-400 text-slate-800 rounded-b-md focus:outline-none focus:ring-slate-500 focus:border-slate-500 focus:z-10 sm:text-sm"
                 placeholder="Senha"
                 value={password}

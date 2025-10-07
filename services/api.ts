@@ -1,551 +1,442 @@
+// services/api.ts
 
-
-import { USERS, PAYSLIPS, TIMEOFF_REQUESTS, MEETING_REQUESTS, ANNOUNCEMENTS, EVENTS, APP_NOTIFICATIONS, LOGS, MEDICAL_CERTIFICATES } from '../constants';
+import { supabaseClient } from './supabaseClient';
 import { User, Payslip, TimeOffRequest, MeetingRequest, Announcement, Event, AppNotification, RequestStatus, Role, LogActionType, LogEntry, MedicalCertificate } from '../types';
 
-// Simulate API latency
-const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-
 // Internal logging function
-const addLog = (admin: User, action: LogActionType, details: string) => {
-    const logEntry: LogEntry = {
-        id: `log-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        adminId: admin.id,
-        adminName: admin.name,
+const addLog = async (admin: User, action: LogActionType, details: string) => {
+    const logEntry = {
+        admin_id: admin.id,
+        admin_name: admin.name,
         action,
         details,
     };
-    LOGS.unshift(logEntry);
+    const { error } = await supabaseClient.from('logs').insert(logEntry);
+    if (error) {
+        console.error("Failed to add log:", error.message);
+    }
 };
 
 
-// This is a mock API service. In a real application, these functions would
-// make HTTP requests to a backend server which interacts with the MySQL database.
-
+// The API service now uses Supabase instead of mock data.
 export const api = {
   // ===================================
   // READ operations
   // ===================================
   async getLogs(): Promise<LogEntry[]> {
-    await delay(200);
-    return Promise.resolve(LOGS);
+    const { data, error } = await supabaseClient.from('logs').select('*').order('timestamp', { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data as any) || [];
   },
   
   async getUsers(): Promise<User[]> {
-    await delay(200);
-    return Promise.resolve(USERS);
+    const { data, error } = await supabaseClient.from('users').select('*');
+    if (error) throw new Error(error.message);
+    return (data as any) || [];
   },
 
   async getPayslips(): Promise<Payslip[]> {
-    await delay(200);
-    return Promise.resolve(PAYSLIPS);
+    const { data, error } = await supabaseClient.from('payslips').select('*');
+    if (error) throw new Error(error.message);
+    return (data as any) || [];
   },
 
   async getTimeOffRequests(): Promise<TimeOffRequest[]> {
-    await delay(200);
-    return Promise.resolve(TIMEOFF_REQUESTS);
+    const { data, error } = await supabaseClient.from('timeoff_requests').select('*');
+    if (error) throw new Error(error.message);
+    return (data as any) || [];
   },
 
   async getMedicalCertificates(): Promise<MedicalCertificate[]> {
-    await delay(200);
-    return Promise.resolve(MEDICAL_CERTIFICATES);
+    const { data, error } = await supabaseClient.from('medical_certificates').select('*');
+    if (error) throw new Error(error.message);
+    return (data as any) || [];
   },
   
   async getMeetingRequests(): Promise<MeetingRequest[]> {
-    await delay(200);
-    return Promise.resolve(MEETING_REQUESTS);
+    const { data, error } = await supabaseClient.from('meeting_requests').select('*');
+    if (error) throw new Error(error.message);
+    return (data as any) || [];
   },
 
   async getAnnouncements(): Promise<Announcement[]> {
-    await delay(200);
-    return Promise.resolve(ANNOUNCEMENTS);
+    const { data, error } = await supabaseClient.from('announcements').select('*').order('date', { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data as any) || [];
   },
   
   async getEvents(): Promise<Event[]> {
-    await delay(200);
-    return Promise.resolve(EVENTS);
+    const { data, error } = await supabaseClient.from('events').select('*');
+    if (error) throw new Error(error.message);
+    return (data as any) || [];
   },
 
   async getAppNotifications(): Promise<AppNotification[]> {
-      await delay(200);
-      return Promise.resolve(APP_NOTIFICATIONS);
+      const { data, error } = await supabaseClient.from('app_notifications').select('*').order('timestamp', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data as any) || [];
   },
 
   // ===================================
   // AUTH operations
   // ===================================
   async login(loginIdentifier: string, password?: string): Promise<User> {
-      await delay(500);
-      const identifier = loginIdentifier.toLowerCase();
-      const user = USERS.find(u => u.email.toLowerCase() === identifier || u.matricula === identifier);
-
-      if (!user) {
+      // Step 1: Find the user in our public.users table
+      const { data: rpcData, error: rpcError } = await supabaseClient
+        .rpc('get_user_for_login', { identifier: loginIdentifier });
+      
+      if (rpcError || !rpcData || rpcData.length === 0) {
           throw new Error('Email/Matrícula ou senha inválidos.');
       }
-      if (user.status === 'INATIVO') {
+
+      const userProfile = rpcData[0];
+
+      if (userProfile.status === 'INATIVO') {
           throw new Error('Sua conta está desativada. Entre em contato com o RH.');
       }
-      // If password is provided, check it. Otherwise, assume it's for setup check.
-      if (password && !user.needsPasswordSetup && user.password !== password) {
+      
+      // Step 2: Handle first-time login (needs to set up a password)
+      if (userProfile.needs_password_setup) {
+          if (password && password.length > 0) {
+              throw new Error('Você precisa criar uma senha antes de fazer login, deixe o campo senha em branco.');
+          }
+          return userProfile as User; // Proceed to setup screen
+      }
+
+      // Step 3: Handle existing user login - password is now mandatory
+      if (!password || password.length === 0) {
+          throw new Error('Senha é obrigatória.');
+      }
+
+      // Step 4: Authenticate with Supabase Auth
+      const { data, error: signInError } = await supabaseClient.auth.signInWithPassword({
+          email: userProfile.email,
+          password: password,
+      });
+
+      // Step 5: Verify that authentication was successful and a session was created
+      if (signInError || !data.session) {
           throw new Error('Email/Matrícula ou senha inválidos.');
       }
-      return Promise.resolve(user);
+      
+      // Step 6: Success, return the user profile from our table
+      return userProfile as User;
+  },
+
+  async logout(): Promise<void> {
+    const { error } = await supabaseClient.auth.signOut();
+    if (error) {
+        // Log the error but don't prevent the user from being logged out on the client-side.
+        console.error("Error signing out from Supabase:", error.message);
+    }
   },
 
   async setupPassword(email: string, newPassword: string): Promise<User> {
-      await delay(500);
-      const userIndex = USERS.findIndex(u => u.email === email);
-      if (userIndex === -1) {
-          throw new Error('Usuário não encontrado.');
+      const { data: userProfile, error: profileError } = await supabaseClient
+        .from('users')
+        .select('id, email')
+        .eq('email', email)
+        .single();
+
+      if (profileError || !userProfile) throw new Error('Usuário não encontrado.');
+      
+      const { error: signUpError } = await supabaseClient.auth.signUp({
+          email: userProfile.email,
+          password: newPassword,
+      });
+
+      if (signUpError && !signUpError.message.includes("User already registered")) {
+          throw new Error(`Falha ao criar usuário de autenticação: ${signUpError.message}`);
       }
-      const updatedUser = { ...USERS[userIndex], password: newPassword, needsPasswordSetup: false };
-      // In a real DB, this would be an UPDATE query. Here we just modify the mock array.
-      USERS[userIndex] = updatedUser;
-      return Promise.resolve(updatedUser);
+      
+      if (signUpError?.message.includes("User already registered")) {
+        const { error: updateError } = await supabaseClient.auth.updateUser({ password: newPassword });
+        if (updateError) throw new Error(`Falha ao atualizar a senha: ${updateError.message}`);
+      }
+
+      const { data: updatedProfile, error: updateProfileError } = await supabaseClient
+          .from('users')
+          .update({ needs_password_setup: false })
+          .eq('id', userProfile.id)
+          .select()
+          .single();
+
+      if (updateProfileError) throw new Error('Falha ao finalizar a configuração do perfil.');
+
+      return updatedProfile as User;
   },
 
   // ===================================
   // WRITE operations
   // ===================================
-
   async registerEmployee(name: string, email: string, matricula: string, adminUser: User, emergencyPhone?: string, birthDate?: string): Promise<User> {
-    await delay(500);
-    if (USERS.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-      throw new Error('Este email já está em uso.');
+    const { data, error } = await supabaseClient.rpc('create_new_user', {
+        p_name: name,
+        p_email: email,
+        p_matricula: matricula,
+        p_emergency_phone: emergencyPhone || null,
+        p_birth_date: birthDate || null,
+    });
+    
+    if (error) {
+        throw new Error(error.message.includes('unique constraint') ? 'Email ou Matrícula já existem.' : error.message);
     }
-    if (USERS.some(u => u.matricula === matricula)) {
-        throw new Error('Esta matrícula já está em uso.');
+    if (!data || data.length === 0) {
+        throw new Error('Não foi possível criar o usuário. Ocorreu um erro inesperado.');
     }
-    const newUser: User = {
-        id: Date.now(),
-        name,
-        email,
-        cpf: String(Date.now()).slice(-11), // Mock CPF as per import logic
-        matricula,
-        role: Role.FUNCIONARIO,
-        needsPasswordSetup: true,
-        status: 'ATIVO',
-        emergencyPhone: emergencyPhone || undefined,
-        birthDate: birthDate || undefined,
-    };
-    USERS.push(newUser); // Mutating mock data
-    addLog(adminUser, LogActionType.CADASTRO_USUARIO, `Cadastrou o novo usuário '${name}' (Matrícula: ${matricula}, Email: ${email}).`);
-    return Promise.resolve(newUser);
+    
+    await addLog(adminUser, LogActionType.CADASTRO_USUARIO, `Cadastrou o novo usuário '${name}' (Matrícula: ${matricula}, Email: ${email}).`);
+    // The RPC function returns an array, even for a single new user. We take the first element.
+    return data[0] as User;
   },
 
   async importEmployees(importedData: any[], adminUser: User): Promise<{ newUsers: User[]; errors: { row: number; data: any; reason: string }[] }> {
-    await delay(1000);
-    const newUsers: User[] = [];
     const errors: { row: number; data: any; reason: string }[] = [];
     
-    const activeUsers = USERS.filter(u => u.status === 'ATIVO');
-    const existingEmails = new Set(activeUsers.map(u => u.email.toLowerCase()));
-    const existingMatriculas = new Set(activeUsers.map(u => u.matricula));
+    const { data: activeUsers, error: fetchError } = await supabaseClient.from('users').select('email, matricula').eq('status', 'ATIVO');
+    if (fetchError) throw new Error(fetchError.message);
 
-    let maxMatricula = Math.max(...USERS.map(u => parseInt(u.matricula, 10)), 0);
+    const existingEmails = new Set(activeUsers?.map(u => u.email.toLowerCase()));
+    const existingMatriculas = new Set(activeUsers?.map(u => u.matricula));
 
+    const { data: maxMatriculaData, error: maxMatriculaError } = await supabaseClient.from('users').select('matricula').order('matricula', { ascending: false }).limit(1).single();
+    if(maxMatriculaError && maxMatriculaError.code !== 'PGRST116') throw new Error(maxMatriculaError.message);
+    let maxMatricula = maxMatriculaData ? parseInt(maxMatriculaData.matricula, 10) : 0;
+    
+    const usersToInsert: any[] = [];
     const matriculasInThisBatch = new Set<string>();
 
     importedData.forEach((row, index) => {
-      const name = row['Nome Completo'];
-      const email = row['Email'];
-      const matricula = row['Matrícula'] ? String(row['Matrícula']) : null;
-      const birthDateRaw = row['Data de Nascimento'];
-      const emergencyPhone = row['Telefone de Emergencia'];
-      const rowIndex = index + 2;
+        const name = row['Nome Completo'];
+        const email = row['Email'];
+        const matricula = row['Matrícula'] ? String(row['Matrícula']) : null;
+        const birthDateRaw = row['Data de Nascimento'];
+        const emergencyPhone = row['Telefone de Emergencia'];
+        const rowIndex = index + 2;
 
-      if (!name || !email) {
-        errors.push({ row: rowIndex, data: row, reason: 'Nome Completo e Email são obrigatórios.' });
-        return;
-      }
-       if (typeof email !== 'string' || !/^\S+@\S+\.\S+$/.test(email)) {
-        errors.push({ row: rowIndex, data: row, reason: 'Formato de email inválido.' });
-        return;
-      }
-      const lowercasedEmail = email.toLowerCase();
-      if (existingEmails.has(lowercasedEmail) || newUsers.some(u => u.email.toLowerCase() === lowercasedEmail)) {
-        errors.push({ row: rowIndex, data: row, reason: 'Email já cadastrado para um usuário ativo.' });
-        return;
-      }
-      
-      let finalMatricula = '';
-      if (matricula) {
-        if (!/^\d{6}$/.test(matricula)) {
-          errors.push({ row: rowIndex, data: row, reason: 'Matrícula deve conter 6 dígitos numéricos.' });
-          return;
+        if (!name || !email) {
+            errors.push({ row: rowIndex, data: row, reason: 'Nome Completo e Email são obrigatórios.' });
+            return;
         }
-        if (existingMatriculas.has(matricula) || matriculasInThisBatch.has(matricula)) {
-           errors.push({ row: rowIndex, data: row, reason: 'Matrícula já cadastrada para um usuário ativo.' });
-           return;
+        if (typeof email !== 'string' || !/^\S+@\S+\.\S+$/.test(email)) {
+            errors.push({ row: rowIndex, data: row, reason: 'Formato de email inválido.' });
+            return;
         }
-        finalMatricula = matricula;
-      } else {
-        maxMatricula++;
-        finalMatricula = String(maxMatricula).padStart(6, '0');
-      }
-      
-      matriculasInThisBatch.add(finalMatricula);
-      
-      let birthDate: string | undefined = undefined;
-      if (birthDateRaw) {
-        try {
-            if (typeof birthDateRaw === 'number') { // Excel serial date
-                const utc_days = Math.floor(birthDateRaw - 25569);
-                const utc_value = utc_days * 86400;
-                const date_info = new Date(utc_value * 1000);
-                birthDate = new Date(date_info.getTime() + (date_info.getTimezoneOffset() * 60 * 1000)).toISOString().split('T')[0];
-            } else if (typeof birthDateRaw === 'string') {
-                let parts = birthDateRaw.split(/[/-]/);
-                if (parts.length === 3) { // Handles DD/MM/YYYY and YYYY-MM-DD
-                    const day = parts[0].length === 4 ? parts[2] : parts[0];
-                    const month = parts[1];
-                    const year = parts[0].length === 4 ? parts[0] : parts[2].length === 4 ? parts[2] : `20${parts[2]}`;
-                    
-                    if (!isNaN(new Date(`${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`).getTime())) {
-                        birthDate = `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`;
-                    }
-                } else {
-                    const parsedDate = new Date(birthDateRaw);
-                    if (!isNaN(parsedDate.getTime())) {
-                        birthDate = parsedDate.toISOString().split('T')[0];
-                    }
-                }
-            } else if (birthDateRaw instanceof Date) {
-                 birthDate = birthDateRaw.toISOString().split('T')[0];
+        const lowercasedEmail = email.toLowerCase();
+        if (existingEmails.has(lowercasedEmail) || usersToInsert.some(u => u.email.toLowerCase() === lowercasedEmail)) {
+            errors.push({ row: rowIndex, data: row, reason: 'Email já cadastrado.' });
+            return;
+        }
+        
+        let finalMatricula = '';
+        if (matricula) {
+            if (!/^\d{6}$/.test(matricula)) {
+                errors.push({ row: rowIndex, data: row, reason: 'Matrícula deve conter 6 dígitos.' });
+                return;
             }
-        } catch (e) {
-            // Ignore if date parsing fails, it's optional
+            if (existingMatriculas.has(matricula) || matriculasInThisBatch.has(matricula)) {
+                errors.push({ row: rowIndex, data: row, reason: 'Matrícula já cadastrada.' });
+                return;
+            }
+            finalMatricula = matricula;
+        } else {
+            maxMatricula++;
+            finalMatricula = String(maxMatricula).padStart(6, '0');
         }
-      }
-
-
-      const newUser: User = {
-        id: Date.now() + index,
-        name: String(name),
-        email: email,
-        cpf: String(Date.now() + index).slice(-11), // Mock CPF
-        matricula: finalMatricula,
-        role: Role.FUNCIONARIO,
-        needsPasswordSetup: true,
-        status: 'ATIVO',
-        emergencyPhone: emergencyPhone ? String(emergencyPhone) : undefined,
-        birthDate,
-      };
-      newUsers.push(newUser);
+        matriculasInThisBatch.add(finalMatricula);
+        
+        let birth_date: string | null = null;
+        if (birthDateRaw instanceof Date) {
+            birth_date = birthDateRaw.toISOString().split('T')[0];
+        } else if (typeof birthDateRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(birthDateRaw)) {
+            birth_date = birthDateRaw;
+        }
+        
+        usersToInsert.push({ name: String(name), email, cpf: String(Date.now() + index).slice(-11), matricula: finalMatricula, role: Role.FUNCIONARIO, needs_password_setup: true, status: 'ATIVO', emergency_phone: emergencyPhone ? String(emergencyPhone) : null, birth_date });
     });
-
-    if (newUsers.length > 0) {
-      USERS.push(...newUsers); // Mutating mock data
-      addLog(adminUser, LogActionType.IMPORTACAO_USUARIOS, `Importou ${newUsers.length} novo(s) usuário(s).`);
+    
+    if (usersToInsert.length === 0) {
+        return { newUsers: [], errors };
     }
 
-    return Promise.resolve({ newUsers, errors });
+    const { data: newUsers, error: insertError } = await supabaseClient.rpc('import_new_users', { users_to_add: usersToInsert });
+    
+    if (insertError) throw new Error(insertError.message);
+    if (newUsers && newUsers.length > 0) {
+      await addLog(adminUser, LogActionType.IMPORTACAO_USUARIOS, `Importou ${newUsers.length} novo(s) usuário(s).`);
+    }
+
+    return { newUsers: (newUsers as any) || [], errors };
   },
 
   async updateUserStatus(userId: number, status: 'ATIVO' | 'INATIVO', adminUser: User): Promise<User> {
-      await delay(300);
-      const userIndex = USERS.findIndex(u => u.id === userId);
-      if (userIndex === -1) throw new Error("Usuário não encontrado.");
-      const user = USERS[userIndex];
-      user.status = status;
-      addLog(adminUser, LogActionType.ATUALIZACAO_STATUS_USUARIO, `Alterou o status de '${user.name}' para ${status}.`);
-      return Promise.resolve(user);
+      const { data, error } = await supabaseClient.from('users').update({ status }).eq('id', userId).select().single();
+      if (error) throw new Error(error.message);
+      await addLog(adminUser, LogActionType.ATUALIZACAO_STATUS_USUARIO, `Alterou o status de '${data.name}' para ${status}.`);
+      return data as User;
   },
 
   async resetUserPassword(userId: number, adminUser: User): Promise<User> {
-      await delay(300);
-      const userIndex = USERS.findIndex(u => u.id === userId);
-      if (userIndex === -1) throw new Error("Usuário não encontrado.");
-      const user = USERS[userIndex];
-      user.needsPasswordSetup = true;
-      user.password = undefined;
-      addLog(adminUser, LogActionType.RESET_SENHA, `Resetou a senha de '${user.name}'.`);
-      return Promise.resolve(user);
+      const { data, error } = await supabaseClient.from('users').update({ needs_password_setup: true }).eq('id', userId).select().single();
+      if (error) throw new Error(error.message);
+      await addLog(adminUser, LogActionType.RESET_SENHA, `Resetou a senha de '${data.name}'.`);
+      return data as User;
   },
 
   async updateUserRole(userId: number, role: Role, adminUser: User): Promise<User> {
-      await delay(300);
-      const userIndex = USERS.findIndex(u => u.id === userId);
-      if (userIndex === -1) throw new Error("Usuário não encontrado.");
-      const user = USERS[userIndex];
-      const targetUser = USERS[userIndex];
-
-      if (adminUser.role === Role.RH) {
-        if (role === Role.ADMIN || targetUser.role === Role.ADMIN) {
+      const { data: targetUser, error: fetchError } = await supabaseClient.from('users').select('role, name').eq('id', userId).single();
+      if (fetchError) throw new Error(fetchError.message);
+      if (adminUser.role === Role.RH && (role === Role.ADMIN || targetUser.role === Role.ADMIN)) {
           throw new Error("RH não pode alterar ou atribuir o cargo de Administrador.");
-        }
       }
-
-      user.role = role;
-      addLog(adminUser, LogActionType.PROMOCAO_CARGO, `Alterou o cargo de '${user.name}' para ${role}.`);
-      return Promise.resolve(user);
+      const { data, error } = await supabaseClient.from('users').update({ role }).eq('id', userId).select().single();
+      if (error) throw new Error(error.message);
+      await addLog(adminUser, LogActionType.PROMOCAO_CARGO, `Alterou o cargo de '${data.name}' para ${role}.`);
+      return data as User;
   },
 
   async updateEmployee(userId: number, data: Partial<Pick<User, 'name' | 'email' | 'emergencyPhone' | 'matricula' | 'birthDate'>>, adminUser: User): Promise<User> {
-      await delay(300);
-      const userIndex = USERS.findIndex(u => u.id === userId);
-      if (userIndex === -1) throw new Error("Usuário não encontrado.");
-      
-      if (data.email) {
-          const newEmail = data.email.toLowerCase();
-          if (USERS.some(u => u.id !== userId && u.email.toLowerCase() === newEmail)) {
-            throw new Error('Este email já está em uso por outro usuário.');
-          }
-      }
-      
-      if (data.matricula) {
-        if (USERS.some(u => u.id !== userId && u.matricula === data.matricula)) {
-          throw new Error('Esta matrícula já está em uso por outro usuário.');
-        }
-      }
+      const updatePayload: any = { ...data };
+      if (data.emergencyPhone) { updatePayload.emergency_phone = data.emergencyPhone; delete updatePayload.emergencyPhone; }
+      if (data.birthDate) { updatePayload.birth_date = data.birthDate; delete updatePayload.birthDate; }
 
-      const user = USERS[userIndex];
-      const updatedUser = { ...user, ...data };
-      USERS[userIndex] = updatedUser;
-      
-      addLog(adminUser, LogActionType.ATUALIZACAO_DADOS_USUARIO, `Atualizou os dados de '${user.name}'.`);
-
-      return Promise.resolve(updatedUser);
+      const { data: updatedUser, error } = await supabaseClient.from('users').update(updatePayload).eq('id', userId).select().single();
+      if (error) throw new Error(error.message.includes('unique constraint') ? 'Email ou Matrícula já existem.' : error.message);
+      await addLog(adminUser, LogActionType.ATUALIZACAO_DADOS_USUARIO, `Atualizou os dados de '${updatedUser.name}'.`);
+      return updatedUser as User;
   },
 
   async deleteUser(userId: number, adminUser: User): Promise<void> {
-      await delay(500);
-      const userIndex = USERS.findIndex(u => u.id === userId);
-      if (userIndex > -1) {
-          if (USERS[userIndex].id === adminUser.id) {
-              throw new Error("Não é possível excluir a própria conta.");
-          }
-          const [deletedUser] = USERS.splice(userIndex, 1);
-          addLog(adminUser, LogActionType.EXCLUSAO_PERMANENTE, `Excluiu o usuário: "${deletedUser.name}".`);
-      }
-      return Promise.resolve();
+      if (userId === adminUser.id) throw new Error("Não é possível excluir a própria conta.");
+      const { data: userToDelete, error: fetchError } = await supabaseClient.from('users').select('name').eq('id', userId).single();
+      if (fetchError) throw new Error(fetchError.message);
+      const { error } = await supabaseClient.from('users').delete().eq('id', userId);
+      if (error) throw new Error(error.message);
+      await addLog(adminUser, LogActionType.EXCLUSAO_PERMANENTE, `Excluiu o usuário: "${userToDelete.name}".`);
   },
 
   async addTimeOffRequest(requestData: Omit<TimeOffRequest, 'id' | 'status' | 'userName' | 'userId'>, currentUser: User): Promise<TimeOffRequest> {
-      await delay(400);
-      const newRequest: TimeOffRequest = {
-          ...requestData,
-          id: `to${Date.now()}`,
-          status: RequestStatus.PENDENTE,
-          userId: currentUser.id,
-          userName: currentUser.name,
-      };
-      TIMEOFF_REQUESTS.unshift(newRequest);
-      return Promise.resolve(newRequest);
+      const payload = { ...requestData, status: RequestStatus.PENDENTE, user_id: currentUser.id, user_name: currentUser.name, start_date: requestData.startDate, end_date: requestData.endDate, approved_by_leader: requestData.approvedByLeader };
+      const { data, error } = await supabaseClient.from('timeoff_requests').insert(payload).select().single();
+      if (error) throw new Error(error.message);
+      return data as TimeOffRequest;
   },
 
   async updateTimeOffStatus(id: string, status: RequestStatus.APROVADO | RequestStatus.NEGADO, adminUser: User): Promise<TimeOffRequest> {
-      await delay(300);
-      const reqIndex = TIMEOFF_REQUESTS.findIndex(r => r.id === id);
-      if (reqIndex === -1) throw new Error("Solicitação não encontrada.");
-      const request = TIMEOFF_REQUESTS[reqIndex];
-      request.status = status;
-      
+      const { data, error } = await supabaseClient.from('timeoff_requests').update({ status }).eq('id', id).select().single();
+      if (error) throw new Error(error.message);
       const actionType = status === RequestStatus.APROVADO ? LogActionType.APROVACAO_FOLGA : LogActionType.NEGACAO_FOLGA;
-      const actionVerb = status === RequestStatus.APROVADO ? 'Aprovou' : 'Negou';
-      addLog(adminUser, actionType, `${actionVerb} a solicitação de ${request.type} de '${request.userName}'.`);
-
-      return Promise.resolve(request);
+      await addLog(adminUser, actionType, `${status === 'Aprovado' ? 'Aprovou' : 'Negou'} a solicitação de ${data.type} de '${data.user_name}'.`);
+      return data as TimeOffRequest;
   },
   
   async addMedicalCertificate(requestData: Omit<MedicalCertificate, 'id' | 'status' | 'userName' | 'userId' | 'submissionDate' | 'fileUrl'>, currentUser: User): Promise<MedicalCertificate> {
-    await delay(400);
-    const newCertificate: MedicalCertificate = {
-        ...requestData,
-        id: `mc${Date.now()}`,
-        status: RequestStatus.PENDENTE,
-        userId: currentUser.id,
-        userName: currentUser.name,
-        submissionDate: new Date().toISOString(),
-        fileUrl: `/certificates/med-cert-${Date.now()}.pdf`, // Mock file URL
-    };
-    MEDICAL_CERTIFICATES.unshift(newCertificate);
-    // Note: Logging for certificate submission could be done by the system, not an admin action.
-    // However, if we want to log it via an admin proxy:
-    // addLog(adminUser, LogActionType.ENVIO_ATESTADO, `Usuário '${currentUser.name}' enviou um atestado de ${requestData.days} dia(s).`);
-    return Promise.resolve(newCertificate);
+    const payload = { ...requestData, status: RequestStatus.PENDENTE, user_id: currentUser.id, user_name: currentUser.name, submission_date: new Date().toISOString(), file_url: `/certificates/med-cert-${Date.now()}.pdf`, start_date: requestData.startDate, cid_code: requestData.cidCode };
+    const { data, error } = await supabaseClient.from('medical_certificates').insert(payload).select().single();
+    if (error) throw new Error(error.message);
+    return data as MedicalCertificate;
   },
 
   async updateMedicalCertificateStatus(id: string, status: RequestStatus.APROVADO | RequestStatus.NEGADO, adminUser: User): Promise<MedicalCertificate> {
-      await delay(300);
-      const certIndex = MEDICAL_CERTIFICATES.findIndex(c => c.id === id);
-      if (certIndex === -1) throw new Error("Atestado não encontrado.");
-      const certificate = MEDICAL_CERTIFICATES[certIndex];
-      certificate.status = status;
-      
+      const { data, error } = await supabaseClient.from('medical_certificates').update({ status }).eq('id', id).select().single();
+      if (error) throw new Error(error.message);
       const actionType = status === RequestStatus.APROVADO ? LogActionType.APROVACAO_ATESTADO : LogActionType.NEGACAO_ATESTADO;
-      const actionVerb = status === RequestStatus.APROVADO ? 'Aprovou' : 'Negou';
-      addLog(adminUser, actionType, `${actionVerb} o atestado de '${certificate.userName}' (${certificate.days} dia(s) a partir de ${new Date(certificate.startDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}).`);
-
-      return Promise.resolve(certificate);
+      await addLog(adminUser, actionType, `${status === 'Aprovado' ? 'Aprovou' : 'Negou'} o atestado de '${data.user_name}'.`);
+      return data as MedicalCertificate;
   },
 
   async addMeetingRequest(requestData: Omit<MeetingRequest, 'id' | 'status' | 'userName' | 'userId'>, currentUser: User): Promise<MeetingRequest> {
-      await delay(400);
-      const newRequest: MeetingRequest = {
-          ...requestData,
-          id: `m${Date.now()}`,
-          status: RequestStatus.PENDENTE,
-          userId: currentUser.id,
-          userName: currentUser.name,
-      };
-      MEETING_REQUESTS.push(newRequest);
-      return Promise.resolve(newRequest);
+      const payload = { ...requestData, status: RequestStatus.PENDENTE, user_id: currentUser.id, user_name: currentUser.name, preferred_date_time: requestData.preferredDateTime };
+      const { data, error } = await supabaseClient.from('meeting_requests').insert(payload).select().single();
+      if (error) throw new Error(error.message);
+      return data as MeetingRequest;
   },
   
   async updateMeetingStatus(id: string, status: RequestStatus.APROVADO | RequestStatus.NEGADO, adminUser: User): Promise<MeetingRequest> {
-      await delay(300);
-      const reqIndex = MEETING_REQUESTS.findIndex(r => r.id === id);
-      if (reqIndex === -1) throw new Error("Solicitação não encontrada.");
-      const request = MEETING_REQUESTS[reqIndex];
-      request.status = status;
-      
+      const { data, error } = await supabaseClient.from('meeting_requests').update({ status }).eq('id', id).select().single();
+      if (error) throw new Error(error.message);
       const actionType = status === RequestStatus.APROVADO ? LogActionType.APROVACAO_REUNIAO : LogActionType.NEGACAO_REUNIAO;
-      const actionVerb = status === RequestStatus.APROVADO ? 'Aprovou' : 'Negou';
-      addLog(adminUser, actionType, `${actionVerb} a solicitação de reunião de '${request.userName}' sobre "${request.topic}".`);
-
-      return Promise.resolve(request);
+      await addLog(adminUser, actionType, `${status === 'Aprovado' ? 'Aprovou' : 'Negou'} a reunião de '${data.user_name}'.`);
+      return data as MeetingRequest;
   },
 
   async addPayslip(payslipData: Omit<Payslip, 'id' | 'fileUrl'>, adminUser: User): Promise<Payslip> {
-      await delay(400);
-      
-      const existingIndex = PAYSLIPS.findIndex(p => p.userId === payslipData.userId && p.month === payslipData.month && p.year === payslipData.year);
-      if (existingIndex > -1) {
-          PAYSLIPS.splice(existingIndex, 1);
-      }
-
-      const employee = USERS.find(u => u.id === payslipData.userId);
-      const newPayslip: Payslip = {
-          ...payslipData,
-          id: `p${Date.now()}`,
-          fileUrl: `/payslips/new-${Date.now()}.pdf`,
-      };
-      PAYSLIPS.push(newPayslip);
-      addLog(adminUser, LogActionType.LANCAMENTO_CONTRACHEQUE, `Lançou ${existingIndex > -1 ? '(substituindo) ' : ''}o contracheque de ${payslipData.month}/${payslipData.year} para '${employee?.name || 'ID desconhecido'}'.`);
-      return Promise.resolve(newPayslip);
+      const payload = { ...payslipData, user_id: payslipData.userId, file_url: `/payslips/new-${Date.now()}.pdf` };
+      const { data, error } = await supabaseClient.from('payslips').upsert(payload, { onConflict: 'user_id, month, year' }).select().single();
+      if (error) throw new Error(error.message);
+      const { data: employee } = await supabaseClient.from('users').select('name').eq('id', payslipData.userId).single();
+      await addLog(adminUser, LogActionType.LANCAMENTO_CONTRACHEQUE, `Lançou o contracheque de ${payslipData.month}/${payslipData.year} para '${employee?.name || 'ID desconhecido'}'.`);
+      return data as Payslip;
   },
 
   async addBatchPayslips(payslipsData: Omit<Payslip, 'id' | 'fileUrl'>[], adminUser: User): Promise<{ newPayslips: Payslip[], successCount: number }> {
-      await delay(1000);
-      const newPayslips: Payslip[] = [];
-      
-      payslipsData.forEach((p, index) => {
-          const existingIndex = PAYSLIPS.findIndex(item => item.userId === p.userId && item.month === p.month && item.year === p.year);
-          if (existingIndex > -1) {
-              PAYSLIPS.splice(existingIndex, 1);
-          }
-          
-          const newPayslip: Payslip = {
-              ...p,
-              id: `p-batch-${Date.now()}-${index}`,
-              fileUrl: `/payslips/batch-${Date.now()}-${index}.pdf`,
-          };
-          newPayslips.push(newPayslip);
-      });
-
-      PAYSLIPS.push(...newPayslips);
-      addLog(adminUser, LogActionType.LANCAMENTO_CONTRACHEQUE, `Lançou ${newPayslips.length} contracheque(s) em lote (com possíveis substituições).`);
-      
-      return Promise.resolve({ newPayslips, successCount: newPayslips.length });
+      const payloads = payslipsData.map((p, i) => ({ ...p, user_id: p.userId, file_url: `/payslips/batch-${Date.now()}-${i}.pdf` }));
+      const { data, error } = await supabaseClient.from('payslips').upsert(payloads, { onConflict: 'user_id, month, year' }).select();
+      if (error) throw new Error(error.message);
+      await addLog(adminUser, LogActionType.LANCAMENTO_CONTRACHEQUE, `Lançou ${data?.length || 0} contracheque(s) em lote.`);
+      return { newPayslips: data as Payslip[], successCount: data?.length || 0 };
   },
 
   async addAnnouncement(announcementData: Omit<Announcement, 'id' | 'date'>, adminUser: User): Promise<Announcement> {
-      await delay(400);
-      const newAnnouncement: Announcement = {
-          ...announcementData,
-          id: `a${Date.now()}`,
-          date: new Date().toISOString().split('T')[0],
-          status: 'ACTIVE',
-      };
-      ANNOUNCEMENTS.unshift(newAnnouncement);
-      addLog(adminUser, LogActionType.PUBLICACAO_INFORMATIVO, `Publicou o informativo: "${newAnnouncement.title}".`);
-      return Promise.resolve(newAnnouncement);
+      const payload = { ...announcementData, date: new Date().toISOString().split('T')[0], status: 'ACTIVE', image_url: announcementData.imageUrl };
+      const { data, error } = await supabaseClient.from('announcements').insert(payload).select().single();
+      if (error) throw new Error(error.message);
+      await addLog(adminUser, LogActionType.PUBLICACAO_INFORMATIVO, `Publicou o informativo: "${data.title}".`);
+      return data as Announcement;
   },
 
   async updateAnnouncementStatus(announcementId: string, status: 'ACTIVE' | 'ARCHIVED', adminUser: User): Promise<Announcement> {
-      await delay(300);
-      const annIndex = ANNOUNCEMENTS.findIndex(a => a.id === announcementId);
-      if (annIndex === -1) throw new Error("Informativo não encontrado.");
-      const announcement = ANNOUNCEMENTS[annIndex];
-      announcement.status = status;
-      const actionVerb = status === 'ARCHIVED' ? 'Arquivou' : 'Reativou';
-      addLog(adminUser, LogActionType.ARQUIVAMENTO_REGISTRO, `${actionVerb} o informativo: "${announcement.title}".`);
-      return Promise.resolve(announcement);
+      const { data, error } = await supabaseClient.from('announcements').update({ status }).eq('id', announcementId).select().single();
+      if (error) throw new Error(error.message);
+      await addLog(adminUser, LogActionType.ARQUIVAMENTO_REGISTRO, `${status === 'ARCHIVED' ? 'Arquivou' : 'Reativou'} o informativo: "${data.title}".`);
+      return data as Announcement;
   },
 
   async deleteAnnouncement(announcementId: string, adminUser: User): Promise<void> {
-      await delay(400);
-      const annIndex = ANNOUNCEMENTS.findIndex(a => a.id === announcementId);
-      if (annIndex > -1) {
-          const [deletedAnnouncement] = ANNOUNCEMENTS.splice(annIndex, 1);
-          addLog(adminUser, LogActionType.EXCLUSAO_PERMANENTE, `Excluiu o informativo: "${deletedAnnouncement.title}".`);
-      }
-      return Promise.resolve();
+      const { data, error: fetchError } = await supabaseClient.from('announcements').select('title').eq('id', announcementId).single();
+      if (fetchError) throw new Error(fetchError.message);
+      const { error } = await supabaseClient.from('announcements').delete().eq('id', announcementId);
+      if (error) throw new Error(error.message);
+      await addLog(adminUser, LogActionType.EXCLUSAO_PERMANENTE, `Excluiu o informativo: "${data.title}".`);
   },
 
   async addEvent(eventData: Omit<Event, 'id'>, adminUser: User): Promise<Event> {
-      await delay(400);
-      const newEvent: Event = {
-          ...eventData,
-          id: `e${Date.now()}`,
-          status: 'ACTIVE',
-      };
-      EVENTS.unshift(newEvent);
-      EVENTS.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
-      addLog(adminUser, LogActionType.CRIACAO_EVENTO, `Criou o evento: "${newEvent.title}".`);
-      return Promise.resolve(newEvent);
+      const payload = { ...eventData, status: 'ACTIVE', date_time: eventData.dateTime, participant_ids: eventData.participantIds, reminder_minutes_before: eventData.reminderMinutesBefore };
+      const { data, error } = await supabaseClient.from('events').insert(payload).select().single();
+      if (error) throw new Error(error.message);
+      await addLog(adminUser, LogActionType.CRIACAO_EVENTO, `Criou o evento: "${data.title}".`);
+      return data as Event;
   },
 
   async updateEvent(eventId: string, eventUpdateData: Partial<Omit<Event, 'id'>>, adminUser: User): Promise<Event> {
-      await delay(300);
-      const eventIndex = EVENTS.findIndex(e => e.id === eventId);
-      if (eventIndex === -1) throw new Error("Evento não encontrado.");
+      const payload: any = { ...eventUpdateData };
+      if (eventUpdateData.dateTime) { payload.date_time = eventUpdateData.dateTime; delete payload.dateTime; }
+      if (eventUpdateData.participantIds) { payload.participant_ids = eventUpdateData.participantIds; delete payload.participantIds; }
+      if (eventUpdateData.reminderMinutesBefore) { payload.reminder_minutes_before = eventUpdateData.reminderMinutesBefore; delete payload.reminderMinutesBefore; }
       
-      const originalEvent = { ...EVENTS[eventIndex] };
-      const updatedEvent = { ...originalEvent, ...eventUpdateData };
-      EVENTS[eventIndex] = updatedEvent;
-      
-      let details = `Atualizou o evento "${originalEvent.title}".`;
-      if (originalEvent.status !== updatedEvent.status) {
-          details = `${updatedEvent.status === 'ARCHIVED' ? 'Arquivou' : 'Reativou'} o evento "${originalEvent.title}".`;
-      }
-
-      addLog(adminUser, LogActionType.ATUALIZACAO_EVENTO, details);
-      
-      EVENTS.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
-      return Promise.resolve(updatedEvent);
+      const { data, error } = await supabaseClient.from('events').update(payload).eq('id', eventId).select().single();
+      if (error) throw new Error(error.message);
+      await addLog(adminUser, LogActionType.ATUALIZACAO_EVENTO, `Atualizou o evento "${data.title}".`);
+      return data as Event;
   },
 
   async deleteEvent(eventId: string, adminUser: User): Promise<void> {
-      await delay(400);
-      const eventIndex = EVENTS.findIndex(e => e.id === eventId);
-      if (eventIndex > -1) {
-          const [deletedEvent] = EVENTS.splice(eventIndex, 1);
-          addLog(adminUser, LogActionType.EXCLUSAO_PERMANENTE, `Excluiu o evento: "${deletedEvent.title}".`);
-      }
-      return Promise.resolve();
+      const { data, error: fetchError } = await supabaseClient.from('events').select('title').eq('id', eventId).single();
+      if (fetchError) throw new Error(fetchError.message);
+      const { error } = await supabaseClient.from('events').delete().eq('id', eventId);
+      if (error) throw new Error(error.message);
+      await addLog(adminUser, LogActionType.EXCLUSAO_PERMANENTE, `Excluiu o evento: "${data.title}".`);
   },
 
   async addAppNotification(userId: number, message: string, link: string): Promise<AppNotification> {
-      await delay(100);
-      const newNotification: AppNotification = {
-          id: `notif-${Date.now()}-${Math.random()}`,
-          userId,
-          message,
-          link,
-          read: false,
-          timestamp: new Date().toISOString(),
-      };
-      APP_NOTIFICATIONS.unshift(newNotification);
-      return Promise.resolve(newNotification);
+      const { data, error } = await supabaseClient.from('app_notifications').insert({ user_id: userId, message, link, read: false }).select().single();
+      if (error) throw new Error(error.message);
+      return data as AppNotification;
   },
 
   async markNotificationsAsRead(userId: number): Promise<AppNotification[]> {
-      await delay(200);
-      const userNotifications = APP_NOTIFICATIONS.filter(n => n.userId === userId);
-      userNotifications.forEach(n => n.read = true);
-      return Promise.resolve(userNotifications);
+      const { data, error } = await supabaseClient.from('app_notifications').update({ read: true }).eq('user_id', userId).eq('read', false).select();
+      if (error) throw new Error(error.message);
+      return (data as any) || [];
   },
 };

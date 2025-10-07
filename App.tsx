@@ -266,7 +266,8 @@ const App: React.FC = () => {
       }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await api.logout();
     setCurrentUser(null);
   };
   
